@@ -62,7 +62,13 @@ export default function HomePage() {
           <div className="flex items-center space-x-4">
             {currentUser ? (
               <>
-                <span className="text-gray-700">{currentUser.username}</span>
+                {/* Username button leading to dashboard */}
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                >
+                  {currentUser.username}
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
@@ -141,7 +147,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-white shadow-inner py-6">
         <div className="container mx-auto text-center text-gray-600">
-          © {new Date().getFullYear()} StreamlineCorp. All rights reserved.
+          Â© {new Date().getFullYear()} StreamlineCorp. All rights reserved.
         </div>
       </footer>
     </div>
