@@ -1,117 +1,73 @@
-# StreamlineCorp Web App
+# StreamlineCorp Web Application
 
-This README guides you through the installation and setup of the StreamlineCorp web application, built with Next.js, React, and PostgreSQL.
-
----
+This is the StreamlineCorp web application built with Next.js, React, and PostgreSQL, providing user authentication and management features.
 
 ## Prerequisites
 
-- **Node.js** (v16 or higher) and **npm**
-- A running **PostgreSQL** instance with the database schema applied
-- Environment variables configured (see below)
-
----
-
-## Environment Variables
-
-Create a `.env.local` file in the project root with the following entries:
-
-```env
-# PostgreSQL connection string
-database_url=postgres://<DatabaseUserNameRedacted>:<DatabaseUserPasswordRedacted>@<DatabaseHost/IP>:5432/humanresources
-
-# JWT secret for signing tokens
-JWT_SECRET=<your-strong-random-string>
-```
-
----
+- **Node.js** (v16 or later) and **npm** installed.
+- A **PostgreSQL** database instance. You should have your connection URL (e.g., `postgres://user:pass@host:port/dbname`).
 
 ## Installation
 
 1. **Clone the repository**
+
    ```bash
-git clone [https://github.com/jack-cros-bie/ase-assignment-2.git](https://github.com/jack-cros-bie/ase-assignment-2.git)
+   git clone https://github.com/jack-cros-bie/ase-assignment-2.git
+   cd ase-assignment-2
    ```
-
-
-````
 
 2. **Install dependencies**
-   ```bash
-npm install
-````
 
-3. **Install Tailwind CSS**
-
-   The project uses Tailwind for styling. If you need to regenerate the config files:
    ```bash
-npx tailwindcss init -p
+   npm install
    ```
 
+3. **Install and initialize Tailwind CSS** (if not already configured)
 
-````
-
-4. **Run database migrations**
-
-   Ensure your PostgreSQL schema is up to date. For example, using a migration tool or running the SQL scripts:
    ```bash
-psql $DATABASE_URL -f ./migrations/init.sql
-````
-
-5. **Start the development server**
-   ```bash
-npm run dev
+   npm install -D tailwindcss postcss autoprefixer
+   npx tailwindcss init -p
    ```
 
+## Required npm Packages
 
-````
-
-   The app will be available at [http://localhost:3000](http://localhost:3000).
-
----
-
-## Key npm Packages
-
-| Package                | Purpose                                    |
-|------------------------|--------------------------------------------|
-| `next`                 | Next.js framework (App Router)             |
-| `react` & `react-dom`  | UI components                              |
-| `pg`                   | PostgreSQL client                          |
-| `bcrypt`               | Password hashing                           |
-| `jsonwebtoken`         | JWT token creation & verification          |
-| `tailwindcss`          | Utility-first CSS framework                |
-| `autoprefixer`         | PostCSS plugin for vendor prefixes         |
-| `postcss`              | CSS processor                              |
-
-### Dev Dependencies (TypeScript)
-
-If using TypeScript, also install:
+### Production dependencies
 
 ```bash
-npm install -D typescript @types/node @types/react @types/bcrypt @types/jsonwebtoken
-````
-
----
-
-## Available Scripts
-Cd to your install directory (default /var/www/html)
-- `npm run dev` - Starts Next.js in development mode
-- `npm run build` - Builds the application for production
-- `npm start` - Runs the production build
-
----
-
-## Folder Structure
-
+npm install next react react-dom pg bcrypt jsonwebtoken
 ```
-/streamlinecorp
-├─ app/                Application routes & pages
-├─ components/         Reusable React components
-├─ lib/                Shared utilities (e.g., sqlHandler)
-├─ public/             Static assets (media folder)
-├─ styles/             Global CSS and Tailwind config
-├─ migrations/         Database SQL scripts
-├─ .env.local          Environment variables
-├─ package.json        npm configuration
-└─ README.md           This file
+
+- **next**: React framework for production.
+- **react** & **react-dom**: UI library.
+- **pg**: PostgreSQL client.
+- **bcrypt**: Password hashing.
+- **jsonwebtoken**: JWT creation & verification.
+
+### Development dependencies
+
+```bash
+npm install -D typescript @types/node @types/pg @types/bcrypt @types/jsonwebtoken tailwindcss postcss autoprefixer
 ```
+
+- **typescript**: Static typing for JS.
+- **@types/**: Type declarations for Node, pg, bcrypt, and jsonwebtoken.
+- **tailwindcss**, **postcss**, **autoprefixer**: Utility-first CSS framework.
+
+## Environment Variables
+
+Create a `.env.local` file at the project root and add:
+
+```bash
+DATABASE_URL=postgres://<DB_USER>:<DB_PASSWORD>@<DB_HOST>:<DB_PORT>/<DB_NAME>
+JWT_SECRET=<your-jwt-secret>
+```
+
+- `DATABASE_URL`: Connection string for your PostgreSQL database.
+- `JWT_SECRET`: A strong secret for signing JWTs (e.g., `openssl rand -hex 32`).
+
+## Available npm Scripts
+
+- ``: Start the development server (Webpack HMR).
+- ``: Build the production app.
+- ``: Run the production build.
+
