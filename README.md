@@ -1,6 +1,6 @@
 # StreamlineCorp Web Application
 
-This is the StreamlineCorp web application built with Next.js, React, and PostgreSQL, providing user authentication and management features.
+This is the StreamlineCorp web application built with Next.js, React, and PostgreSQL, providing user authentication and management features for their timesheets.
 
 ## Prerequisites
 
