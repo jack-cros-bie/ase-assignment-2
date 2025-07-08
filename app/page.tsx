@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,15 +12,43 @@ interface Employee {
   JobTitle: string;
 }
 
+interface User {
+  userid: number;
+  username: string;
+}
+
 export default function HomePage() {
+  const router = useRouter();
   const [keyEmployees, setKeyEmployees] = useState<Employee[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
+    // Fetch key employees
     fetch("/api/employees/key")
       .then((res) => res.json())
       .then((data) => setKeyEmployees(data))
       .catch((err) => console.error("Failed to load key employees:", err));
+
+    // Fetch current user session
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (!res.ok) throw new Error("Not authenticated");
+        return res.json();
+      })
+      .then((data) => setCurrentUser(data))
+      .catch(() => setCurrentUser(null));
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    } finally {
+      setCurrentUser(null);
+      router.push("/");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -30,11 +59,26 @@ export default function HomePage() {
             <Image src="/media/logo.png" alt="StreamlineCorp Logo" width={40} height={40} />
             <span className="text-2xl font-bold text-indigo-600">StreamlineCorp</span>
           </Link>
-          <nav className="space-x-6">
-            <Link href="/applications" className="text-gray-700 hover:text-indigo-600 transition">Applications</Link>
-            <Link href="/login" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Login</Link>
-            <Link href="/register" className="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition">Register</Link>
-          </nav>
+          <div className="flex items-center space-x-4">
+            {currentUser ? (
+              <>
+                <span className="text-gray-700">{currentUser.username}</span>
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                Login
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
@@ -53,14 +97,16 @@ export default function HomePage() {
           <p className="mt-4 text-lg md:text-xl text-gray-200 max-w-2xl">
             A fast-growing company with over 2,000 employees across the globe.
           </p>
-          <div className="mt-6 flex space-x-4">
-            <Link href="/login" className="px-6 py-3 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition">
-              Login
-            </Link>
-            <Link href="/register" className="px-6 py-3 bg-white text-indigo-600 rounded-full hover:bg-gray-100 transition">
-              Register
-            </Link>
-          </div>
+          {!currentUser && (
+            <div className="mt-6 flex space-x-4">
+              <Link
+                href="/login"
+                className="px-6 py-3 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition"
+              >
+                Login
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
