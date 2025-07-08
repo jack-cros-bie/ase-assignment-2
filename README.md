@@ -30,9 +30,9 @@ JWT_SECRET=<your-strong-random-string>
 
 1. **Clone the repository**
    ```bash
+git clone [https://github.com/jack-cros-bie/ase-assignment-2.git](https://github.com/jack-cros-bie/ase-assignment-2.git)
    ```
 
-git clone [https://github.com/jack-cros-bie/ase-assignment-2.git](https://github.com/jack-cros-bie/ase-assignment-2.git)
 
 ````
 
@@ -45,9 +45,9 @@ npm install
 
    The project uses Tailwind for styling. If you need to regenerate the config files:
    ```bash
+npx tailwindcss init -p
    ```
 
-npx tailwindcss init -p
 
 ````
 
@@ -60,9 +60,9 @@ psql $DATABASE_URL -f ./migrations/init.sql
 
 5. **Start the development server**
    ```bash
+npm run dev
    ```
 
-npm run dev
 
 ````
 
