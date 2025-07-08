@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
       // 4a) If an entry exists, update its status
       await query(
         `
-        UPDATE AnnualLeave
+        UPDATE annualleave
         SET approval_status = 'pending_approval'
-        WHERE UserId = $1 AND Date = $2
+        WHERE userid = $1 AND date = $2
         `,
         [userId, date]
       );
@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
       // 4b) If no entry exists, insert a new one
       await query(
         `
-        INSERT INTO AnnualLeave (UserId, Date, approval_status)
+        INSERT INTO annualleave (userid, date, approval_status)
         SELECT $1, $2, 'pending_approval'
         WHERE NOT EXISTS (
-          SELECT 1 FROM AnnualLeave WHERE UserId = $1 AND Date = $2
+          SELECT 1 FROM annualleave WHERE userid = $1 AND date = $2
         )
         `,
         [userId, date]
