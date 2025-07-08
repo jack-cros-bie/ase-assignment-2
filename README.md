@@ -44,7 +44,7 @@ npm install next react react-dom pg bcrypt jsonwebtoken
 - **jsonwebtoken**: JWT creation & verification.
 
 ### Development dependencies
-
+The following command can be run to install all packages in one go:
 ```bash
 npm install -D typescript @types/node @types/pg @types/bcrypt @types/jsonwebtoken tailwindcss postcss autoprefixer
 ```
@@ -67,7 +67,7 @@ JWT_SECRET=<your-jwt-secret>
 
 ## Available npm Scripts
 
-- ``: Start the development server (Webpack HMR).
-- ``: Build the production app.
-- ``: Run the production build.
+- `npm run dev`: Start the development server (Webpack HMR).
+- `npm run build`: Build the production app.
+- `npm start`: Run the production build.
 
