@@ -1,277 +1,360 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
 
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+// Leave statuses
+type LeaveStatus = "pending_approval" | "approved" | "rejected";
 
-const year = 2025;
-
-function formatDayWithSuffix(d: number) {
-  if (d === 1 || d === 21 || d === 31) return d + "st";
-  if (d === 2 || d === 22) return d + "nd";
-  if (d === 3 || d === 23) return d + "rd";
-  return d + "th";
+// Leave entry shape
+interface LeaveEntry {
+  date: string; // "YYYY-MM-DD"
+  approval_status: LeaveStatus;
 }
 
-const AnnualLeave = () => {
-  const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [approvedDays, setApprovedDays] = useState<string[]>([]);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const selectionStart = useRef<{ index: number } | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<number>(0);
-  const [modalMessage, setModalMessage] = useState<string | null>(null);
+export default function AnnualLeavePage() {
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 7); // YYYY-MM
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const daysInMonth = new Date(year, currentMonth + 1, 0).getDate();
-
-  const isWeekday = (date: Date) => {
-    const day = date.getDay();
-    return day >= 1 && day <= 5;
-  };
-
-  const weekdaysInMonth: string[] = [];
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, currentMonth, d);
-    if (isWeekday(date)) {
-      weekdaysInMonth.push(formatDayWithSuffix(d));
-    }
-  }
-
-  const weeksCount = Math.ceil(weekdaysInMonth.length / 5);
-
-  while (weekdaysInMonth.length < weeksCount * 5) {
-    weekdaysInMonth.push("");
-  }
-
-  const fullDayString = (day: string) => `${monthNames[currentMonth]} ${day}`;
-
-  const selectHighlightRange = (startIdx: number, endIdx: number) => {
-    const [from, to] = [startIdx, endIdx].sort((a, b) => a - b);
-    const daysToSelect: string[] = [];
-    for (let i = from; i <= to; i++) {
-      const day = weekdaysInMonth[i];
-      if (day) daysToSelect.push(day);
-    }
-    setSelectedDays(daysToSelect);
-  };
-
-  const handleMouseDown = (index: number, day: string) => {
-    if (!day) return;
-    setIsSelecting(true);
-    selectionStart.current = { index };
-    setSelectedDays([day]);
-  };
-
-  const handleMouseEnter = (index: number, day: string) => {
-    if (!day || !isSelecting || !selectionStart.current) return;
-    selectHighlightRange(selectionStart.current.index, index);
-  };
-
-  const handleMouseUp = () => {
-    setIsSelecting(false);
-    selectionStart.current = null;
-  };
-
-  const totalLeaveAllowed = 21;
-  const totalApproved = approvedDays.length;
-
-  const handleRequestLeave = () => {
-    if (selectedDays.length === 0) {
-      setModalMessage("No days selected!");
-      return;
-    }
-    const remaining = totalLeaveAllowed - totalApproved;
-    if (selectedDays.length > remaining) {
-      setModalMessage("Too many days requested, please try again");
-      return;
-    }
-    setApprovedDays((prev) => {
-      const newDays = Array.from(
-        new Set([
-          ...prev,
-          ...selectedDays.map((day) => fullDayString(day)),
-        ])
-      );
-      return newDays;
-    });
-    setSelectedDays([]);
-    setModalMessage("Annual leave confirmed");
-  };
-
-  const handleCancelLeave = () => {
-    if (selectedDays.length === 0) {
-      setModalMessage("No days selected!");
-      return;
-    }
-    setApprovedDays((prev) => {
-      const cancelDaysSet = new Set(selectedDays.map((day) => fullDayString(day)));
-      return prev.filter((day) => !cancelDaysSet.has(day));
-    });
-    setSelectedDays([]);
-  };
-
-  const approvedDaysForCurrentMonth = approvedDays
-    .filter((day) => day.startsWith(monthNames[currentMonth] + " "))
-    .map((day) => day.replace(monthNames[currentMonth] + " ", ""));
-
-  const upcomingLeave = approvedDays.length > 0 ? approvedDays.join(", ") : "No upcoming leave";
+  const dragSelecting = useRef(false);
+  const dragStartDate = useRef<string | null>(null);
 
   useEffect(() => {
-    setSelectedDays([]);
-  }, [currentMonth]);
+    async function fetchLeave() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/timesheet/request?month=${month}`);
+        if (!res.ok) {
+          const json = await safeJson(res);
+          throw new Error(json?.error || "Failed to load leave data");
+        }
+        const data: LeaveEntry[] = await res.json();
+        setLeaveEntries(Array.isArray(data) ? data : []);
+        setSelectedDates(new Set());
+      } catch (err: any) {
+        setError(err.message || "Failed to load leave data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLeave();
+  }, [month]);
+
+  async function safeJson(res: Response) {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function getDatesInRange(start: string, end: string): string[] {
+    const dates: string[] = [];
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const step = startDate <= endDate ? 1 : -1;
+
+    while (true) {
+      dates.push(startDate.toISOString().slice(0, 10));
+      if (startDate.getTime() === endDate.getTime()) break;
+      startDate.setDate(startDate.getDate() + step);
+    }
+    return dates;
+  }
+
+  function onPointerDown(date: string) {
+    dragSelecting.current = true;
+    dragStartDate.current = date;
+    setSelectedDates((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(date);
+      return newSet;
+    });
+  }
+
+  function onPointerEnter(date: string) {
+    if (!dragSelecting.current || !dragStartDate.current) return;
+
+    const range = getDatesInRange(dragStartDate.current, date);
+    const validDates = weekdays.filter((d) => range.includes(d));
+
+    setSelectedDates((prev) => {
+      const newSet = new Set(prev);
+      for (const d of validDates) {
+        newSet.add(d);
+      }
+      return newSet;
+    });
+  }
+
+  function onPointerUp() {
+    dragSelecting.current = false;
+    dragStartDate.current = null;
+  }
+
+  async function submitLeaveRequest() {
+    if (selectedDates.size === 0) {
+      alert("Please select at least one date.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/timesheet/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dates: Array.from(selectedDates) }),
+      });
+
+      const json = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to request leave");
+      }
+
+      alert("Leave request submitted. Status is now pending approval.");
+
+      const refreshed = await fetch(`/api/timesheet/request?month=${month}`);
+      if (!refreshed.ok) throw new Error("Failed to refresh leave data");
+
+      const refreshedData: LeaveEntry[] = await refreshed.json();
+      setLeaveEntries(Array.isArray(refreshedData) ? refreshedData : []);
+      setSelectedDates(new Set());
+    } catch (err: any) {
+      setError(err.message || "Failed to submit leave request");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelLeaveRequest() {
+    if (selectedDates.size === 0) {
+      alert("Please select at least one date to cancel.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/timesheet/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dates: Array.from(selectedDates) }),
+      });
+
+      const json = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to cancel leave");
+      }
+
+      alert("Leave cancelled successfully.");
+
+      const refreshed = await fetch(`/api/timesheet/request?month=${month}`);
+      if (!refreshed.ok) throw new Error("Failed to refresh leave data");
+
+      const refreshedData: LeaveEntry[] = await refreshed.json();
+      setLeaveEntries(Array.isArray(refreshedData) ? refreshedData : []);
+      setSelectedDates(new Set());
+    } catch (err: any) {
+      setError(err.message || "Failed to cancel leave");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getWeekdaysInMonth(year: number, monthIndex: number) {
+    const date = new Date(year, monthIndex, 1);
+    const dates: string[] = [];
+    while (date.getMonth() === monthIndex) {
+      const day = date.getDay();
+      if (day >= 1 && day <= 5) {
+        dates.push(date.toISOString().slice(0, 10));
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return dates;
+  }
+
+  const [year, monthNum] = month.split("-").map(Number);
+  const weekdays = getWeekdaysInMonth(year, monthNum - 1);
+
+  function getStatusColor(date: string): string {
+    if (selectedDates.has(date)) return "#add8e6";
+    const entry = leaveEntries.find((e) => e.date === date);
+    if (!entry) return "transparent";
+    switch (entry.approval_status) {
+      case "pending_approval":
+        return "#FFBF00";
+      case "approved":
+        return "#4CAF50";
+      case "rejected":
+        return "#F44336";
+      default:
+        return "transparent";
+    }
+  }
+
+  const approvedDays = leaveEntries.filter(e => e.approval_status === "approved").length;
+  const pendingDays = leaveEntries.filter(e => e.approval_status === "pending_approval").length;
+  const rejectedDays = leaveEntries.filter(e => e.approval_status === "rejected").length;
+  const totalAllowance = 25;
+  const remaining = totalAllowance - approvedDays;
+
+  const upcomingLeave = leaveEntries
+    .filter(e => e.approval_status === "approved" || e.approval_status === "pending_approval")
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
-    <>
-      <div
-        className="p-6 font-sans bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen"
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{ userSelect: "none" }}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <select
-            className="border rounded px-2 py-1 shadow"
-            value={currentMonth}
-            onChange={(e) => setCurrentMonth(Number(e.target.value))}
+    <div
+      style={{ backgroundColor: "#f9f9f9", display: "flex", padding: 20 }}
+      onPointerUp={onPointerUp}
+    >
+      <div style={{ flex: 1, maxWidth: 700 }}>
+        <h1 style={{ fontSize: "2rem", marginBottom: 10 }}>Annual Leave Request</h1>
+
+        <label>
+          Select month: {" "}
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            disabled={loading}
+            style={{ marginBottom: 10 }}
+          />
+        </label>
+
+        {error && <p style={{ color: "red", marginTop: 10 }}>Error: {error}</p>}
+
+        <div
+          style={{
+            marginTop: 20,
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            gap: 8,
+          }}
+        >
+          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((wd) => (
+            <div key={wd} style={{ fontWeight: "bold", textAlign: "center" }}>{wd}</div>
+          ))}
+
+          {weekdays.map((dateStr) => {
+            const dayNum = parseInt(dateStr.slice(-2), 10);
+            const isSelected = selectedDates.has(dateStr);
+            const statusColor = getStatusColor(dateStr);
+
+            return (
+              <div
+                key={dateStr}
+                onPointerDown={() => onPointerDown(dateStr)}
+                onPointerEnter={() => onPointerEnter(dateStr)}
+                style={{
+                  cursor: "pointer",
+                  userSelect: "none",
+                  padding: 10,
+                  borderRadius: 6,
+                  border: isSelected ? "2px solid #000" : "1px solid #ccc",
+                  backgroundColor: statusColor,
+                  color: statusColor === "transparent" || isSelected ? "#000" : "#fff",
+                  textAlign: "center",
+                  fontWeight: "600",
+                  transition: "background-color 0.2s, border 0.2s",
+                  touchAction: "none",
+                }}
+                title={`Date: ${dateStr}\nStatus: ${leaveEntries.find((e) => e.date === dateStr)?.approval_status || "None"}`}
+              >
+                {dayNum}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+          <button
+            onClick={submitLeaveRequest}
+            disabled={loading || selectedDates.size === 0}
+            style={{
+              padding: "12px 24px",
+              fontSize: 16,
+              backgroundColor: selectedDates.size === 0 ? "#ccc" : "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: selectedDates.size === 0 ? "not-allowed" : "pointer",
+            }}
           >
-            {monthNames.map((name, i) => (
-              <option key={i} value={i}>
-                {name} {year}
-              </option>
-            ))}
-          </select>
-          <h1 className="text-3xl font-bold text-indigo-700 text-center flex-1">
-            Streamline Corp – Annual Leave
-          </h1>
-          <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex justify-center items-center font-bold shadow">
-            S
-          </div>
-        </div>
+            {loading ? "Processing..." : "Request Leave"}
+          </button>
 
-        <div className="flex gap-6">
-          <div className="w-2/3">
-            <table className="w-full text-center border-collapse">
-              <thead>
-                <tr>
-                  {weekDays.map((day) => (
-                    <th key={day} className="py-2 text-indigo-800 font-semibold">
-                      {day}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: weeksCount }).map((_, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {weekdaysInMonth
-                      .slice(rowIndex * 5, rowIndex * 5 + 5)
-                      .map((day, colIndex) => {
-                        const cellIndex = rowIndex * 5 + colIndex;
-                        const isSelected = selectedDays.includes(day);
-                        const isApproved = approvedDaysForCurrentMonth.includes(day);
-                        return (
-                          <td
-                            key={colIndex}
-                            className={`h-14 rounded transition-colors duration-200 cursor-pointer select-none
-                              ${isApproved ? "bg-green-500 text-white" : ""}
-                              ${isSelected && !isApproved ? "bg-blue-400 text-white" : "hover:bg-indigo-200"}
-                            `}
-                            onMouseDown={() => handleMouseDown(cellIndex, day)}
-                            onMouseEnter={() => handleMouseEnter(cellIndex, day)}
-                            onDragStart={(e) => e.preventDefault()}
-                          >
-                            {day}
-                          </td>
-                        );
-                      })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <button
+            onClick={cancelLeaveRequest}
+            disabled={loading || selectedDates.size === 0}
+            style={{
+              padding: "12px 24px",
+              fontSize: 16,
+              backgroundColor: selectedDates.size === 0 ? "#ccc" : "#e00",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: selectedDates.size === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Processing..." : "Cancel Leave"}
+          </button>
 
-          <div className="w-1/3 space-y-4">
-            <div className="bg-white p-4 rounded shadow">
-              <p>Total Annual Leave: <strong>{totalLeaveAllowed} days</strong></p>
-              <p>Annual Leave used: <strong>{totalApproved} days</strong></p>
-              <p>Annual Leave booked: <strong>{totalApproved} days</strong></p>
-              <p>Annual Leave remaining: <strong>{totalLeaveAllowed - totalApproved} days</strong></p>
-            </div>
-
-            <div className="bg-white p-4 rounded shadow">
-              <p className="font-semibold">Key:</p>
-              <ul className="text-sm list-disc pl-4">
-                <li><span className="text-blue-500">Leave Requested</span></li>
-                <li><span className="text-green-600">Leave Approved</span></li>
-                <li className="text-gray-500">Leave Taken</li>
-                <li className="text-red-400">Bank Holiday</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-6">
-          <div className="bg-white p-4 rounded shadow">
-            <p className="font-semibold">Days Selected:</p>
-            <p>{selectedDays.join(", ") || "None"}</p>
-            <div className="flex gap-2 mt-4">
-              <button
-                className="bg-red-100 hover:bg-red-300 text-red-800 px-4 py-2 rounded shadow disabled:opacity-50"
-                onClick={handleCancelLeave}
-                disabled={selectedDays.length === 0}
-              >
-                Cancel Leave
-              </button>
-              <button
-                className="bg-blue-100 hover:bg-blue-300 text-blue-800 px-4 py-2 rounded shadow disabled:opacity-50"
-                onClick={handleRequestLeave}
-                disabled={selectedDays.length === 0}
-              >
-                Request Leave
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 rounded shadow">
-            <p className="font-semibold">Upcoming Leave:</p>
-            <p>{upcomingLeave}</p>
-          </div>
+          <button
+            onClick={() => setSelectedDates(new Set())}
+            disabled={loading || selectedDates.size === 0}
+            style={{
+              padding: "12px 24px",
+              fontSize: 16,
+              backgroundColor: selectedDates.size === 0 ? "#ccc" : "#666",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: selectedDates.size === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            Clear Selection
+          </button>
         </div>
       </div>
 
-      <AnimatePresence>
-        {modalMessage && (
-          <motion.div
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50"
-            onClick={() => setModalMessage(null)}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white p-6 rounded shadow-lg max-w-sm text-center"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <p className="mb-4">{modalMessage}</p>
-              <button
-                className="bg-indigo-100 hover:bg-indigo-300 text-indigo-800 px-4 py-2 rounded"
-                onClick={() => setModalMessage(null)}
-              >
-                Close
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
-  );
-};
+      <div style={{ marginLeft: 40, minWidth: 220 }}>
+        <div style={{ marginBottom: 16 }}>
+          <strong>Key:</strong>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+            <span style={{ backgroundColor: "#FFBF00", padding: "4px 8px", borderRadius: 4 }}>Pending</span>
+            <span style={{ backgroundColor: "#4CAF50", padding: "4px 8px", borderRadius: 4, color: "white" }}>Approved</span>
+            <span style={{ backgroundColor: "#F44336", padding: "4px 8px", borderRadius: 4, color: "white" }}>Rejected</span>
+            <span style={{ backgroundColor: "#add8e6", padding: "4px 8px", borderRadius: 4 }}>Selected</span>
+          </div>
+        </div>
 
-export default AnnualLeave;
+        <div style={{ marginBottom: 16 }}>
+          <p><strong>Total Allowance:</strong> {totalAllowance} days</p>
+          <p><strong>Approved:</strong> {approvedDays} days</p>
+          <p><strong>Pending:</strong> {pendingDays} days</p>
+          <p><strong>Rejected:</strong> {rejectedDays} days</p>
+          <p><strong>Remaining:</strong> {remaining} days</p>
+        </div>
+
+        <div>
+          <strong>Upcoming Leave:</strong>
+          <ul>
+            {upcomingLeave.map((entry) => (
+              <li key={entry.date}>{entry.date} - {entry.approval_status}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
