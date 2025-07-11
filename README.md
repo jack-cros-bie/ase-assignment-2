@@ -46,7 +46,7 @@ npm install next react react-dom pg bcrypt jsonwebtoken
 ### Development dependencies
 The following command can be run to install all packages in one go:
 ```bash
-npm install -D typescript @types/node @types/pg @types/bcrypt @types/jsonwebtoken tailwindcss postcss autoprefixer
+npm install -D typescript @types/node @types/pg @types/bcrypt @types/jsonwebtoken tailwindcss postcss autoprefixer swr next-themes
 ```
 
 - **typescript**: Static typing for JS.
