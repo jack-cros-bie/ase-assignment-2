@@ -4,11 +4,20 @@ import React, { useState } from 'react';
 
 type BookingEntry = {
   id: number;
-  day: string;
+  date: string;
   code: string;
   start: string;
   end: string;
   hours: string;
+};
+
+const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
+
+const getDateFromDay = (monday: Date, day: string): string => {
+  const index = dayLabels.indexOf(day);
+  const d = new Date(monday);
+  d.setDate(monday.getDate() + index);
+  return d.toISOString().slice(0, 10); // e.g., "2025-07-08"
 };
 
 const getStartOfWeek = (date: Date): Date => {
@@ -40,31 +49,95 @@ export default function TimesheetPage() {
 
   const weekDates = getFormattedWeekDates(weekStart);
 
-  const addEntry = () => {
-    setEntries((prev) => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        day: selectedDay,
-        code: '',
-        start: '',
-        end: '',
-        hours: '',
+const addEntry = () => {
+  const newDate = getDateFromDay(weekStart, selectedDay);
+  setEntries((prev) => [
+    ...prev,
+    {
+      id: prev.length > 0 ? Math.max(...prev.map((e) => e.id)) + 1 : 1,
+      date: newDate,
+      code: '',
+      start: '',
+      end: '',
+      hours: '',
+    },
+  ]);
+};
+
+const updateEntry = (id: number, field: keyof BookingEntry, value: string) => {
+  setEntries((prev) =>
+    prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
+  );
+};
+
+const changeWeek = (direction: 'prev' | 'next') => {
+  const newDate = new Date(weekStart);
+  newDate.setDate(weekStart.getDate() + (direction === 'next' ? 7 : -7));
+  setWeekStart(getStartOfWeek(newDate));
+};
+
+const stripTime = (date: Date) => {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const getTotalBookedHours = () => {
+  const monday = stripTime(new Date(weekStart));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  return entries.reduce((sum, entry) => {
+    const entryDate = stripTime(new Date(entry.date));
+    const hours = parseFloat(entry.hours);
+    const isInWeek = entryDate >= monday && entryDate <= sunday;
+
+    if (!isNaN(hours) && isInWeek) {
+      return sum + hours;
+    }
+    return sum;
+  }, 0);
+};
+
+//____________________________________________________________________________________________________________________________________________________________________________________________________________________
+// Submit handler
+
+const handleSubmit = async () => {
+  
+    const validEntries = entries
+      .filter((e) => e.code && e.date && e.start && e.end)
+      .map(({ code, date, start, end }) => ({
+        code,
+        date,
+        start,
+        end,
+      }));
+
+    if (validEntries.length === 0) {
+      alert('No valid entries to submit.');
+      return;
+    }
+
+    const response = await fetch('/api/timesheet/submit/route.ts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        //Authorization: `Bearer ${token}`,
       },
-    ]);
-  };
+      body: JSON.stringify({ entries: validEntries }),
+    });
 
-  const updateEntry = (id: number, field: keyof BookingEntry, value: string) => {
-    setEntries((prev) =>
-      prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
-    );
-  };
+    const result = await response.json();
 
-  const changeWeek = (direction: 'prev' | 'next') => {
-    const newDate = new Date(weekStart);
-    newDate.setDate(weekStart.getDate() + (direction === 'next' ? 7 : -7));
-    setWeekStart(getStartOfWeek(newDate));
-  };
+    if (response.ok) {
+      alert('Timesheets submitted successfully!');
+      // Optionally clear entries:
+      // setEntries([]);
+    } else {
+      alert(`Error: ${result.error}`);
+    }
+};
+
+//____________________________________________________________________________________________________________________________________________________________________________________________________________________
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 text-gray-800">
@@ -78,7 +151,7 @@ export default function TimesheetPage() {
       <div className="bg-white p-4 rounded shadow mb-4 flex justify-between items-center">
         <div className="text-lg font-semibold">Overview</div>
         <div className="text-sm">
-          Booked this week: <strong>37 Hours</strong>
+          Booked this week: <strong>{getTotalBookedHours().toFixed(2)} Hours</strong>
         </div>
       </div>
 
@@ -95,9 +168,8 @@ export default function TimesheetPage() {
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0"
-          >
-            <div className="text-sm text-gray-500 w-full md:w-auto">Day: <strong>{entry.day}</strong></div>
+            className="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
+            <div className="text-sm text-gray-500 w-full md:w-auto">Date: <strong>{entry.date}</strong></div>
             <input
               type="text"
               placeholder="Booking Code"
@@ -215,7 +287,9 @@ export default function TimesheetPage() {
         </div>
 
         <div className="flex space-x-4">
-          <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          <button
+          onClick={handleSubmit}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
             Submit This Week
           </button>
           <a
