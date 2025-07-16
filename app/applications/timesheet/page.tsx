@@ -116,11 +116,10 @@ const handleSubmit = async () => {
       return;
     }
 
-    const response = await fetch('/api/timesheet/submit/route.ts', {
+    const response = await fetch('/api/timesheet/submit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        //Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ entries: validEntries }),
     });

@@ -1,4 +1,4 @@
-// app/api/timesheet/submit/route.ts
+// app/api/timesheet/submit/
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { query } from "@/server/sql/sqlHandler.server";
@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
       if (!code || !date || !start || !end) continue;
 
       await query(
-        `INSERT INTO humanresources.timesheets (bookingcode, date, starttime, endtime)
-         VALUES ($1, $2, $3, $4)`,
-        [code, date, start, end]
+        `INSERT INTO humanresources.timesheets (userid, bookingcode, date, starttime, endtime)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, code, date, start, end]
       );
     }
 
