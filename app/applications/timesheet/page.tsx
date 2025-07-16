@@ -149,8 +149,35 @@ export default function TimesheetPage() {
       {/* Allocation Breakdown */}
       <div className="bg-white p-4 rounded shadow mb-6">
         <div className="font-semibold mb-2">Allocation breakdown</div>
-        <div>XXXXXX - 100%</div>
+        {(() => {
+          const hoursByCode: Record<string, number> = {};
+          let totalHours = 0;
+
+          entries.forEach((entry) => {
+            const hours = parseFloat(entry.hours);
+            if (!isNaN(hours) && entry.code.trim()) {
+              const code = entry.code.trim();
+              hoursByCode[code] = (hoursByCode[code] || 0) + hours;
+              totalHours += hours;
+            }
+          });
+
+          if (totalHours === 0) {
+            return <div className="text-gray-500">No hours booked.</div>;
+          }
+
+          return (
+            <ul className="list-disc list-inside">
+              {Object.entries(hoursByCode).map(([code, hrs]) => (
+                <li key={code}>
+                  {code} – {((hrs / totalHours) * 100).toFixed(1)}%
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
       </div>
+
 
       {/* Weekdays + Navigation + Submit Buttons */}
       <div className="bg-white p-4 rounded shadow flex flex-col md:flex-row justify-between items-center">
@@ -192,7 +219,7 @@ export default function TimesheetPage() {
             Submit This Week
           </button>
           <a
-            href="http://localhost:3000/applications/annual%20leave"
+            href="http://localhost:3000/annual-leave"
             className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
           >
             Book Annual Leave
