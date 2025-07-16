@@ -12,6 +12,7 @@ interface LeaveEntry {
 export default function AnnualLeavePage() {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
+  const [dateStatusMap, setDateStatusMap] = useState<Map<string, LeaveStatus>>(new Map());
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return toUKDateISO(now).slice(0, 7);
@@ -35,7 +36,7 @@ export default function AnnualLeavePage() {
       .join("-");
   }
 
-  // --- Data fetching ---
+  // --- Data fetching for month ---
   useEffect(() => {
     async function fetchLeave() {
       setLoading(true);
@@ -58,6 +59,30 @@ export default function AnnualLeavePage() {
     fetchLeave();
   }, [month]);
 
+  // --- Fetch per-date status ---
+  useEffect(() => {
+    const [year, monthNum] = month.split("-").map(Number);
+    const weeks = getWeeksOfMondaysThroughFridays(year, monthNum - 1);
+    async function fetchStatuses() {
+      const statuses = new Map<string, LeaveStatus>();
+      await Promise.all(
+        weeks.flat().filter((date) => !!date).map(async (date) => {
+          try {
+            const res = await fetch(`/api/annualleave/status?date=${date}`);
+            if (res.ok) {
+              const data: LeaveEntry = await res.json();
+              statuses.set(date!, data.approval_status);
+            }
+          } catch {
+            // leave as undefined
+          }
+        })
+      );
+      setDateStatusMap(new Map(statuses));
+    }
+    fetchStatuses();
+  }, [month]);
+
   async function safeJson(res: Response) {
     try {
       return await res.json();
@@ -69,13 +94,10 @@ export default function AnnualLeavePage() {
   // --- Date utilities ---
   function getWeeksOfMondaysThroughFridays(year: number, monthIndex: number): string[][] {
     const weeks: string[][] = [];
-    // start from the 1st of the month
     let date = new Date(Date.UTC(year, monthIndex, 1));
-    // back up to the Monday of that week (could be previous month)
     while (date.getUTCDay() !== 1) {
       date.setUTCDate(date.getUTCDate() - 1);
     }
-    // now iterate week by week until we've passed the end of the month
     while (true) {
       const week: string[] = [];
       for (let i = 0; i < 5; i++) {
@@ -84,7 +106,6 @@ export default function AnnualLeavePage() {
         date.setUTCDate(date.getUTCDate() + 1);
       }
       weeks.push(week);
-      // advance to next Monday
       date.setUTCDate(date.getUTCDate() + 2);
       if (date.getUTCFullYear() > year || (date.getUTCFullYear() === year && date.getUTCMonth() > monthIndex)) {
         break;
@@ -150,12 +171,12 @@ export default function AnnualLeavePage() {
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json?.error || "Failed to request leave");
       alert("Leave request submitted. Status is now pending approval.");
-      // refresh
       const refreshed = await fetch(`/api/annualleave?month=${month}`);
       if (!refreshed.ok) throw new Error("Failed to refresh leave data");
       const refreshedData: LeaveEntry[] = await refreshed.json();
       setLeaveEntries(Array.isArray(refreshedData) ? refreshedData : []);
       setSelectedDates(new Set());
+      window.location.reload();
     } catch (err: any) {
       setError(err.message || "Failed to submit leave request");
     } finally {
@@ -179,7 +200,6 @@ export default function AnnualLeavePage() {
       const json = await safeJson(res);
       if (!res.ok) throw new Error(json?.error || "Failed to cancel leave");
       alert("Leave cancelled successfully.");
-      // refresh
       const refreshed = await fetch(`/api/annualleave?month=${month}`);
       if (!refreshed.ok) throw new Error("Failed to refresh leave data");
       const refreshedData: LeaveEntry[] = await refreshed.json();
@@ -196,15 +216,10 @@ export default function AnnualLeavePage() {
   const [year, monthNum] = month.split("-").map(Number);
   const weeks = getWeeksOfMondaysThroughFridays(year, monthNum - 1);
 
-  const upcomingLeave = leaveEntries
-    .filter((e) => e.approval_status !== "rejected")
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const upcomingMap = new Map(upcomingLeave.map((e) => [e.date, e.approval_status]));
-
   function getStatusColor(date?: string) {
     if (!date) return "transparent";
     if (selectedDates.has(date)) return "#a8d0ff";
-    const status = upcomingMap.get(date);
+    const status = dateStatusMap.get(date);
     if (status === "pending_approval") return "#ffb300";
     if (status === "approved") return "#4caf50";
     return "transparent";
@@ -286,37 +301,34 @@ export default function AnnualLeavePage() {
         >
           {/* Weekday Labels */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 24, fontWeight: 700, color: "#0d47a1" }}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri"].map((wd) => (
-              <div key={wd} style={{ textAlign: "center" }}>{wd}</div>
-            ))}
+            {['Mon','Tue','Wed','Thu','Fri'].map(wd => <div key={wd} style={{ textAlign: 'center' }}>{wd}</div>)}
           </div>
 
           {/* Date Grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
             {weeks.flat().map((dateStr, idx) => {
-              const dayNum = dateStr ? parseInt(dateStr.slice(-2), 10) : "";
+              const dayNum = dateStr ? parseInt(dateStr.slice(-2), 10) : '';
               const bgColor = getStatusColor(dateStr);
               const isSelected = dateStr ? selectedDates.has(dateStr) : false;
-
               return (
                 <div
                   key={idx}
                   onPointerDown={() => onPointerDown(dateStr)}
                   onPointerEnter={() => onPointerEnter(dateStr)}
                   style={{
-                    cursor: dateStr ? "pointer" : "default",
+                    cursor: dateStr ? 'pointer' : 'default',
                     padding: 12,
                     borderRadius: 8,
-                    border: isSelected ? "3px solid #0d47a1" : "1.5px solid #ddd",
+                    border: isSelected ? '3px solid #0d47a1' : '1.5px solid #ddd',
                     backgroundColor: bgColor,
-                    color: "#000",
+                    color: '#000',
                     fontWeight: isSelected ? 700 : 500,
                     fontSize: 17,
                     minHeight: 46,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    transition: "all 0.3s ease",
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    transition: 'all 0.3s ease',
                   }}
                 >
                   {dayNum}
@@ -337,10 +349,10 @@ export default function AnnualLeavePage() {
                 fontWeight: 600,
                 borderRadius: 8,
                 border: "none",
-                backgroundColor: loading || selectedDates.size === 0 ? "#a0aec0" : "#0d47a1",
-                color: "#fff",
-                cursor: loading || selectedDates.size === 0 ? "not-allowed" : "pointer",
-                boxShadow: "0 4px 10px rgba(13, 71, 161, 0.3)",
+                backgroundColor: loading || selectedDates.size === 0 ? '#a0aec0' : '#0d47a1',
+                color: '#fff',
+                cursor: loading || selectedDates.size === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 10px rgba(13, 71, 161, 0.3)',
               }}
             >
               Request Leave
@@ -356,8 +368,8 @@ export default function AnnualLeavePage() {
                 borderRadius: 8,
                 border: "2px solid #e53935",
                 backgroundColor: "transparent",
-                color: loading || selectedDates.size === 0 ? "#f9bdbb" : "#e53935",
-                cursor: loading || selectedDates.size === 0 ? "not-allowed" : "pointer",
+                color: loading || selectedDates.size === 0 ? '#f9bdbb' : '#e53935',
+                cursor: loading || selectedDates.size === 0 ? 'not-allowed' : 'pointer',
               }}
             >
               Cancel Leave
@@ -389,22 +401,19 @@ export default function AnnualLeavePage() {
           </ul>
 
           <h3 style={{ fontWeight: 700, fontSize: "1.1rem", color: "#0d47a1" }}>Upcoming Leave</h3>
-          {upcomingLeave.length === 0 ? (
+          {leaveEntries.filter(e => e.approval_status !== 'rejected').length === 0 ? (
             <p style={{ fontStyle: "italic", color: "#777", paddingLeft: 12, borderLeft: "3px solid #ccc" }}>
               No upcoming leave.
             </p>
           ) : (
             <ul style={{ paddingLeft: 20, marginBottom: 20, borderLeft: "3px solid #0d47a1", maxHeight: 220, overflowY: "auto" }}>
-              {upcomingLeave.map(({ date, approval_status }) => (
+              {leaveEntries.filter(e => e.approval_status !== 'rejected').sort((a, b) => a.date.localeCompare(b.date)).map(({ date, approval_status }) => (
                 <li
                   key={date}
                   style={{
                     marginBottom: 8,
                     fontWeight: 600,
-                    color:
-                      approval_status === "approved"
-                        ? "#4caf50"
-                        : "#ffb300",
+                    color: approval_status === "approved" ? "#4caf50" : "#ffb300",
                   }}
                 >
                   {date} — {approval_status.replace("_", " ")}
@@ -430,4 +439,3 @@ export default function AnnualLeavePage() {
     </div>
   );
 }
-
