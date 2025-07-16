@@ -1,32 +1,74 @@
-// WowDisplay.tsx
-import React from 'react';
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Check, X } from 'lucide-react';
 
-const approvals = [
-  {
-    id: 'EMP001',
-    type: 'Annual Leave',
-    date: '2025-07-15',
-    description: 'Requesting annual leave for personal reasons.'
-  },
-  {
-    id: 'EMP002',
-    type: 'Time Sheet',
-    date: '2025-07-12',
-    description: 'Submitting updated hours for project X.'
-  },
-  // Add more approvals here
-];
+interface User {
+  userid: number;
+  username: string;
+}
 
-const WowDisplay: React.FC = () => {
-  return (
+interface AnnualLeaveRecord{
+      userid: number;
+      date: string;
+      description: string;
+} 
+
+export default function ManagerApprovalPage() {
+
+  const router = useRouter();
+  const [AnnualLeaveRecords, getAnnualLeaveRecord] = useState<AnnualLeaveRecord[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Fetch key employees
+    fetch("/api/manager-approvals")
+      .then((res) => res.json())
+      .then((data) => getAnnualLeaveRecord(data))
+      .catch((err) => console.error("Failed to load annual leave records:", err));
+
+    // Fetch current user session
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (!res.ok) throw new Error("Not authenticated");
+        return res.json();
+      })
+      .then((data) => setCurrentUser(data))
+      .catch(() => setCurrentUser(null));
+  }, []);
+
+//   const approvals = [
+//   {
+//     id: 'EMP001',
+//     type: 'Annual Leave',
+//     date: '2025-07-15',
+//     description: 'Requesting annual leave for personal reasons.'
+//   },
+//   {
+//     id: 'EMP002',
+//     type: 'Time Sheet',
+//     date: '2025-07-12',
+//     description: 'Submitting updated hours for project X.'
+//   },
+//   // Add more approvals here
+// ];
+
+const approvals = AnnualLeaveRecords.map((leaveRecord) => ({
+  id: leaveRecord.userid,
+  type: "Annual Leave",
+  date: leaveRecord.date,
+  description: leaveRecord.description,
+}));
+
+return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="flex justify-between items-center mb-4">
         <Button variant="ghost" className="flex items-center gap-2">
           <ChevronLeft className="w-5 h-5" /> Back
         </Button>
-        <img src="/logo.png" alt="Company Logo" className="h-10" />
+        <img src="/media/logo.png" alt="Company Logo" className="h-10" />
       </div>
 
       <div className="max-h-[70vh] overflow-y-auto space-y-4">
@@ -54,4 +96,3 @@ const WowDisplay: React.FC = () => {
   );
 };
 
-export default WowDisplay;
