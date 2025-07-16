@@ -19,16 +19,11 @@ interface AnnualLeaveRecord{
 export default function ManagerApprovalPage() {
 
   const router = useRouter();
-  const [AnnualLeaveRecords, getAnnualLeaveRecord] = useState<AnnualLeaveRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [AnnualLeaveRecords, setAnnualLeaveRecords] = useState<AnnualLeaveRecord[]>([]);
+
 
   useEffect(() => {
-    // Fetch key employees
-    fetch("/api/manager-approvals")
-      .then((res) => res.json())
-      .then((data) => getAnnualLeaveRecord(data))
-      .catch((err) => console.error("Failed to load annual leave records:", err));
-
     // Fetch current user session
     fetch("/api/auth/me")
       .then((res) => {
@@ -38,6 +33,23 @@ export default function ManagerApprovalPage() {
       .then((data) => setCurrentUser(data))
       .catch(() => setCurrentUser(null));
   }, []);
+
+  useEffect(() => {
+    // Only run the manager approval fetch if currentUser is not null
+    if (currentUser) {
+      const managerId = currentUser.userid; // Use currentUser.userid
+      
+      //for some reason this stops working if i remove e=something paramater it does nothing else but allow the mangerId value to be decode as without it there it does not decode
+      const apiUrl = `/api/manager-approvals/GetAnnualLeaveRequests?e=something&managerId=${managerId}`; 
+
+      console.log(apiUrl);
+
+      fetch(apiUrl)
+        .then((res) => res.json())
+        .then((data) => setAnnualLeaveRecords(data)) // use setAnnualLeaveRecords
+        .catch((err) => console.error("Failed to load annual leave records:", err));
+    }
+  }, [currentUser]); // Add currentUser as a dependency to this useEffect
 
 //   const approvals = [
 //   {
@@ -68,6 +80,18 @@ return (
         <Button variant="ghost" className="flex items-center gap-2">
           <ChevronLeft className="w-5 h-5" /> Back
         </Button>
+      <div>
+        {currentUser ? (
+          <>
+            {/* Username button leading to dashboard */}
+            <div>
+              <p>{currentUser.username} ID:{currentUser.userid}</p>
+            </div>
+          </>
+        ) : (
+          <div></div>
+        )}
+      </div>
         <img src="/media/logo.png" alt="Company Logo" className="h-10" />
       </div>
 
