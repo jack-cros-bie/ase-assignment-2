@@ -32,12 +32,12 @@ export async function GET(req: NextRequest) {
       endtime: string;
       approval_status: string;
     }>(
-      `SELECT "date" AS date, "approval_status"
-       FROM "annualleave"
-       WHERE "userid" = $1
-         AND "date" >= $2::date
-         AND "date" < (date_trunc('month', $2::date) + INTERVAL '1 month')
-       ORDER BY "date"`,
+      `SELECT TO_CHAR("date", 'DD-MM-YYYY') AS date, "approval_status"
+        FROM "annualleave"
+        WHERE "userid" = $1
+          AND "date" >= $2::date
+          AND "date" < (date_trunc('month', $2::date) + INTERVAL '1 month')
+        ORDER BY "date"`,
       [userId, `${monthParam}-01`]
     );
     return NextResponse.json(rows);
