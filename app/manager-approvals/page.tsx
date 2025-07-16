@@ -24,6 +24,24 @@ interface TimesheetRecord{
       endtime: string;
 }
 
+function ApproveLeave(index: number) {
+    
+    console.log("Approved Annual Leave", index);
+}
+
+function RejectLeave(index: number) {
+    
+    console.log("Reject Annual Leave", index);
+}
+function ApproveTimesheet(index: number) {
+    
+    console.log("Approved Timesheets", index);
+}
+function RejectTimesheet(index: number) {
+  
+    console.log("Reject Timesheet", index);
+}
+
 export default function ManagerApprovalPage() {
 
   const router = useRouter();
@@ -120,8 +138,8 @@ return (
                     <p><strong>Key Information:</strong> {annualLeaveApprovals.date}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline"><Check className="text-green-600" /></Button>
-                    <Button variant="outline"><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => ApproveLeave(index) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => RejectLeave(index) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
                 <details className="text-sm text-gray-600">
@@ -147,8 +165,8 @@ return (
                     <p><strong>End Time:</strong> {timesheetApprovals.endtime}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline"><Check className="text-green-600" /></Button>
-                    <Button variant="outline"><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => ApproveTimesheet(index) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => RejectTimesheet(index) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
               </div>

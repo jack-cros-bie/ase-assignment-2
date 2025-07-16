@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       ` SELECT timesheets.userid, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
         FROM timesheets
         INNER JOIN employeedetails ON timesheets.userid=employeedetails.userid
-        WHERE employeedetails.managerid = $1` , // Use parameterized query
+        WHERE employeedetails.managerid = $1 AND timesheets.approved <> TRUE` , // Use parameterized query
       [parsedManagerId] // Pass the managerId as a parameter
     );
 
