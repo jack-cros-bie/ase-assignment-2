@@ -122,22 +122,22 @@ export default function HomePage() {
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {keyEmployees.map((emp) => (
             <div
-              key={emp.userid}
+              key={emp.UserId}
               className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-shadow"
             >
               <div className="relative h-48 w-full">
                 <Image
-                  src={`/media/employee_${emp.userid % 5 + 1}.jpg`}
-                  alt={`${emp.firstname} ${emp.surname}`}
+                  src={`/media/employee_${emp.UserId % 5 + 1}.jpg`}
+                  alt={`${emp.Firstname} ${emp.Surname}`}
                   fill
                   className="object-cover"
                 />
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold text-gray-800">
-                  {emp.firstname} {emp.surname}
+                  {emp.Firstname} {emp.Surname}
                 </h3>
-                <p className="mt-2 text-indigo-600 font-medium">{emp.jobtitle}</p>
+                <p className="mt-2 text-indigo-600 font-medium">{emp.JobTitle}</p>
               </div>
             </div>
           ))}
