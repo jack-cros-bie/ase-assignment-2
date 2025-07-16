@@ -1,43 +1,69 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
 
 type BookingEntry = {
   id: number;
+  day: string;
   code: string;
   start: string;
   end: string;
   hours: string;
 };
 
+const getStartOfWeek = (date: Date): Date => {
+  const day = date.getDay();
+  const diffToMonday = (day + 6) % 7;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - diffToMonday);
+  return monday;
+};
+
+const getFormattedWeekDates = (monday: Date): { day: string; label: string }[] => {
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+
+    const day = date.getDate();
+    const month = date.toLocaleString('default', { month: 'short' });
+    return {
+      day: ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'][i],
+      label: `${day} ${month}`,
+    };
+  });
+};
+
 export default function TimesheetPage() {
-  const [entries, setEntries] = useState<BookingEntry[]>([
-    { id: 1, code: "", start: "", end: "", hours: "" },
-  ]);
+  const [weekStart, setWeekStart] = useState(getStartOfWeek(new Date()));
+  const [selectedDay, setSelectedDay] = useState('Mon');
+  const [entries, setEntries] = useState<BookingEntry[]>([]);
+
+  const weekDates = getFormattedWeekDates(weekStart);
 
   const addEntry = () => {
     setEntries((prev) => [
       ...prev,
       {
         id: prev.length + 1,
-        code: "",
-        start: "",
-        end: "",
-        hours: "",
+        day: selectedDay,
+        code: '',
+        start: '',
+        end: '',
+        hours: '',
       },
     ]);
   };
 
-  const updateEntry = (
-    id: number,
-    field: keyof BookingEntry,
-    value: string
-  ) => {
+  const updateEntry = (id: number, field: keyof BookingEntry, value: string) => {
     setEntries((prev) =>
-      prev.map((entry) =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      )
+      prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
     );
+  };
+
+  const changeWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(weekStart);
+    newDate.setDate(weekStart.getDate() + (direction === 'next' ? 7 : -7));
+    setWeekStart(getStartOfWeek(newDate));
   };
 
   return (
@@ -45,7 +71,7 @@ export default function TimesheetPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div className="text-2xl font-bold">Streamline Corp – Timesheets</div>
-        <div className="text-sm">Date: XX/XX/XX</div>
+        <div className="text-sm">Date: {new Date().toLocaleDateString()}</div>
       </div>
 
       {/* Overview Section */}
@@ -69,34 +95,43 @@ export default function TimesheetPage() {
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="bg-white p-4 rounded shadow flex items-center space-x-4"
+            className="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0"
           >
+            <div className="text-sm text-gray-500 w-full md:w-auto">Day: <strong>{entry.day}</strong></div>
             <input
               type="text"
               placeholder="Booking Code"
               value={entry.code}
-              onChange={(e) => updateEntry(entry.id, "code", e.target.value)}
-              className="border p-2 rounded w-1/3"
+              onChange={(e) => updateEntry(entry.id, 'code', e.target.value)}
+              className="border p-2 rounded w-full md:w-1/4"
             />
             <input
               type="time"
               value={entry.start}
-              onChange={(e) => updateEntry(entry.id, "start", e.target.value)}
-              className="border p-2 rounded w-1/4"
+              onChange={(e) => updateEntry(entry.id, 'start', e.target.value)}
+              className="border p-2 rounded w-full md:w-1/4"
             />
             <input
               type="time"
               value={entry.end}
-              onChange={(e) => updateEntry(entry.id, "end", e.target.value)}
-              className="border p-2 rounded w-1/4"
+              onChange={(e) => updateEntry(entry.id, 'end', e.target.value)}
+              className="border p-2 rounded w-full md:w-1/4"
             />
             <input
               type="text"
               placeholder="Hours"
               value={entry.hours}
-              onChange={(e) => updateEntry(entry.id, "hours", e.target.value)}
-              className="border p-2 rounded w-1/6"
+              onChange={(e) => updateEntry(entry.id, 'hours', e.target.value)}
+              className="border p-2 rounded w-full md:w-1/6"
             />
+            <button
+            onClick={() =>
+            setEntries((prev) => prev.filter((e) => e.id !== entry.id))
+            }
+            className="px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+            >
+            Remove<br/>Item -
+            </button>
           </div>
         ))}
       </div>
@@ -117,18 +152,42 @@ export default function TimesheetPage() {
         <div>XXXXXX - 100%</div>
       </div>
 
-      {/* Weekdays + Submit Buttons */}
+      {/* Weekdays + Navigation + Submit Buttons */}
       <div className="bg-white p-4 rounded shadow flex flex-col md:flex-row justify-between items-center">
-        <div className="flex space-x-4 text-center text-sm font-medium">
-          {["Mon", "Tue", "Wed", "Thur", "Fri"].map((day) => (
-            <div key={day} className="p-2 w-12 bg-gray-200 rounded">
-              {day}
-              <div className="text-xl">XX</div>
-            </div>
-          ))}
+        <div className="flex flex-col md:flex-row md:items-center md:space-x-4 mb-4 md:mb-0">
+          <button
+            onClick={() => changeWeek('prev')}
+            className="mb-2 md:mb-0 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm"
+          >
+            ← Previous Week
+          </button>
+
+          <div className="flex space-x-2 text-center text-sm font-medium">
+            {weekDates.map(({ day, label }) => (
+              <button
+                key={day}
+                onClick={() => setSelectedDay(day)}
+                className={`p-2 w-16 rounded ${
+                  selectedDay === day
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 hover:bg-gray-300'
+                }`}
+              >
+                {day}
+                <div className="text-xs">{label}</div>
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => changeWeek('next')}
+            className="mt-2 md:mt-0 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 text-sm"
+          >
+            Next Week →
+          </button>
         </div>
 
-        <div className="flex space-x-4 mt-4 md:mt-0">
+        <div className="flex space-x-4">
           <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
             Submit This Week
           </button>
