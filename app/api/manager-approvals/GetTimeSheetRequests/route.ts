@@ -1,3 +1,4 @@
+// File: /api/manager-approvals/GetTimesheetRequests/route.ts
 import { NextResponse } from 'next/server';
 import { query } from '@/server/sql/sqlHandler.server';
 
@@ -17,15 +18,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid managerId.  Must be a number.' }, { status: 400 });
     }
 
-    const TimesheetRecord = await query<{
-      userid: number;
-      date: string;
-      description: string;
-    }>(
-      ` SELECT timesheets.userid, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
-        FROM timesheets
-        INNER JOIN employeedetails ON timesheets.userid=employeedetails.userid
-        WHERE employeedetails.managerid = $1 AND timesheets.approved <> TRUE` , // Use parameterized query
+    const TimesheetRecord = await query<{}>(
+      `SELECT timesheets.timesheetentryid, timesheets.userid, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
+       FROM timesheets
+       INNER JOIN employeedetails ON timesheets.userid=employeedetails.userid
+       WHERE timesheets.approved <> TRUE AND employeedetails.managerid = $1` , // Use parameterized query
       [parsedManagerId] // Pass the managerId as a parameter
     );
 

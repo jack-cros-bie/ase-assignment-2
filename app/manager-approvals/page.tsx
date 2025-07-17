@@ -11,12 +11,14 @@ interface User {
 }
 
 interface AnnualLeaveRecord{
+      leaveentryid: number;
       userid: number;
       date: string;
       description: string;
 } 
 
 interface TimesheetRecord{
+      timesheetentryid: number;
       userid: number;
       bookingcode: string;
       date: string;
@@ -24,22 +26,55 @@ interface TimesheetRecord{
       endtime: string;
 }
 
-function ApproveLeave(index: number) {
-    
-    console.log("Approved Annual Leave", index);
+async function ApproveLeave(leaveentryid: number): Promise<any> {
+  try {
+    const response = await fetch(`/api/manager-approvals/ApproveAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to approve leave entry');
+    }
+
+    console.log("successfully approved leave")
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error approving leave entry:', error);
+    throw error;
+  }
 }
 
-function RejectLeave(index: number) {
-    
-    console.log("Reject Annual Leave", index);
+async function RejectLeave(leaveentryid: number) {
+  try {
+    const response = await fetch(`/api/manager-approvals/RejectAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to approve leave entry');
+    }
+
+    console.log("successfully rejected leave")
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error rejecting leave entry:', error);
+    throw error;
+  }
 }
-function ApproveTimesheet(index: number) {
+
+function ApproveTimesheet(timesheetid: number) {
     
-    console.log("Approved Timesheets", index);
+    console.log("Approved Timesheets", timesheetid);
 }
-function RejectTimesheet(index: number) {
+function RejectTimesheet(timesheetid: number) {
   
-    console.log("Reject Timesheet", index);
+    console.log("Reject Timesheet", timesheetid);
 }
 
 export default function ManagerApprovalPage() {
@@ -89,19 +124,21 @@ export default function ManagerApprovalPage() {
     }, [currentUser]); // Add currentUser as a dependency to this useEffect
 
   const annualLeaveApprovals = AnnualLeaveRecords.map((leaveRecord) => ({
-  id: leaveRecord.userid,
-  type: "Annual Leave",
-  date: leaveRecord.date,
-  description: leaveRecord.description,
+    leaveentryid: leaveRecord.leaveentryid,
+    userid: leaveRecord.userid,
+    type: "Annual Leave",
+    date: leaveRecord.date,
+    description: leaveRecord.description,
 }));
 
   const timesheetApprovals = TimesheetRecords.map((timesheetRecord) => ({
-  id: timesheetRecord.userid,
-  type: "Timesheet",
-  date: timesheetRecord.date,
-  bookingcode: timesheetRecord.bookingcode,
-  starttime: timesheetRecord.starttime,
-  endtime: timesheetRecord.endtime
+    timesheetentryid: timesheetRecord.timesheetentryid,
+    userid: timesheetRecord.userid,
+    type: "Timesheet",
+    date: timesheetRecord.date,
+    bookingcode: timesheetRecord.bookingcode,
+    starttime: timesheetRecord.starttime,
+    endtime: timesheetRecord.endtime
 }));
 
 
@@ -133,13 +170,13 @@ return (
               <div key={index} className="bg-white p-4 rounded-2xl shadow-md">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex gap-6 text-sm">
-                    <p><strong>Employee:</strong> {annualLeaveApprovals.id}</p>
+                    <p><strong>Employee:</strong> {annualLeaveApprovals.userid}</p>
                     <p><strong>Request Type:</strong> {annualLeaveApprovals.type}</p>
                     <p><strong>Key Information:</strong> {annualLeaveApprovals.date}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => ApproveLeave(index) as any}><Check className="text-green-600" /></Button>
-                    <Button variant="outline" onClick={() => RejectLeave(index) as any}><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => ApproveLeave(annualLeaveApprovals.leaveentryid) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => RejectLeave(annualLeaveApprovals.leaveentryid) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
                 <details className="text-sm text-gray-600">
@@ -158,15 +195,15 @@ return (
               <div key={index} className="bg-white p-4 rounded-2xl shadow-md">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex gap-6 text-sm">
-                    <p><strong>Employee:</strong> {timesheetApprovals.id}</p>
+                    <p><strong>Employee:</strong> {timesheetApprovals.userid}</p>
                     <p><strong>Request Type:</strong> {timesheetApprovals.type}</p>
                     <p><strong>Date:</strong> {timesheetApprovals.date}</p>
                     <p><strong>Start Time:</strong> {timesheetApprovals.starttime}</p>
                     <p><strong>End Time:</strong> {timesheetApprovals.endtime}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => ApproveTimesheet(index) as any}><Check className="text-green-600" /></Button>
-                    <Button variant="outline" onClick={() => RejectTimesheet(index) as any}><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => ApproveTimesheet(timesheetApprovals.timesheetentryid) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => RejectTimesheet(timesheetApprovals.timesheetentryid) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
               </div>
