@@ -26,55 +26,64 @@ interface TimesheetRecord{
       endtime: string;
 }
 
-async function ApproveLeave(leaveentryid: number): Promise<any> {
-  try {
-    const response = await fetch(`/api/manager-approvals/ApproveAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to approve leave entry');
+async function UpdateLeave(leaveentryid: Number, approved: boolean)
+{
+  try
+  {
+    var response;
+    if(approved)
+    {
+      response = await fetch(`/api/manager-approvals/ApproveAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, 
+      {
+        method: 'POST',
+      });
     }
-
-    console.log("successfully approved leave")
+    else
+    {
+      response = await fetch(`/api/manager-approvals/RejectAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, 
+      {
+        method: 'POST',
+      });
+    }
 
     const data = await response.json();
     return data;
-  } catch (error) {
-    console.error('Error approving leave entry:', error);
+  }
+  catch (error) 
+  {
+    console.error('Error updating leave entry:', error);
     throw error;
   }
 }
 
-async function RejectLeave(leaveentryid: number) {
-  try {
-    const response = await fetch(`/api/manager-approvals/RejectAnnualLeave/?e=something&leaveentryid=${leaveentryid}`, {
-      method: 'POST',
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to approve leave entry');
+async function UpdateTimesheetApproval(timesheetentryid: Number, approved: boolean)
+{
+  try
+  {
+    var response;
+    if(approved)
+    {
+      response = await fetch(`/api/manager-approvals/ApproveTimesheet/?e=something&leaveentryid=${timesheetentryid}`, 
+      {
+        method: 'POST',
+      });
     }
-
-    console.log("successfully rejected leave")
+    else
+    {
+      response = await fetch(`/api/manager-approvals/RejectTimesheet/?e=something&leaveentryid=${timesheetentryid}`, 
+      {
+        method: 'POST',
+      });
+    }
 
     const data = await response.json();
     return data;
-  } catch (error) {
-    console.error('Error rejecting leave entry:', error);
+  }
+  catch (error) 
+  {
+    console.error('Error updating timesheet entry:', error);
     throw error;
   }
-}
-
-function ApproveTimesheet(timesheetid: number) {
-    
-    console.log("Approved Timesheets", timesheetid);
-}
-function RejectTimesheet(timesheetid: number) {
-  
-    console.log("Reject Timesheet", timesheetid);
 }
 
 export default function ManagerApprovalPage() {
@@ -175,8 +184,8 @@ return (
                     <p><strong>Key Information:</strong> {annualLeaveApprovals.date}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => ApproveLeave(annualLeaveApprovals.leaveentryid) as any}><Check className="text-green-600" /></Button>
-                    <Button variant="outline" onClick={() => RejectLeave(annualLeaveApprovals.leaveentryid) as any}><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => UpdateLeave(annualLeaveApprovals.leaveentryid, true) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => UpdateLeave(annualLeaveApprovals.leaveentryid, false) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
                 <details className="text-sm text-gray-600">
@@ -202,8 +211,8 @@ return (
                     <p><strong>End Time:</strong> {timesheetApprovals.endtime}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => ApproveTimesheet(timesheetApprovals.timesheetentryid) as any}><Check className="text-green-600" /></Button>
-                    <Button variant="outline" onClick={() => RejectTimesheet(timesheetApprovals.timesheetentryid) as any}><X className="text-red-600" /></Button>
+                    <Button variant="outline" onClick={() => UpdateTimesheetApproval(timesheetApprovals.timesheetentryid, true) as any}><Check className="text-green-600" /></Button>
+                    <Button variant="outline" onClick={() => UpdateTimesheetApproval(timesheetApprovals.timesheetentryid, false) as any}><X className="text-red-600" /></Button>
                   </div>
                 </div>
               </div>
