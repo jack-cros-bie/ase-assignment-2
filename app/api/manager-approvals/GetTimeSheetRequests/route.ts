@@ -22,7 +22,8 @@ export async function GET(request: Request) {
       `SELECT timesheets.timesheetentryid, timesheets.userid, employeedetails.firstname, employeedetails.surname, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
        FROM timesheets
        INNER JOIN employeedetails ON timesheets.userid=employeedetails.userid
-       WHERE timesheets.approved = 'pending_approval' AND employeedetails.managerid = $1` , // Use parameterized query
+       WHERE timesheets.approved = 'pending_approval' AND employeedetails.managerid = $1
+       ORDER BY timesheets.timesheetentryid` , // Use parameterized query
       [parsedManagerId] // Pass the managerId as a parameter
     );
 

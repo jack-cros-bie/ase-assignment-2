@@ -22,7 +22,8 @@ export async function GET(request: Request) {
       `SELECT annualleave.leaveentryid, annualleave.userid, employeedetails.firstname, employeedetails.surname, annualleave.date, annualleave.description
        FROM annualleave
        INNER JOIN employeedetails ON annualleave.userid=employeedetails.userid
-       WHERE annualleave.approval_status='pending_approval' AND employeedetails.managerid = $1` , // Use parameterized query
+       WHERE annualleave.approval_status='pending_approval' AND employeedetails.managerid = $1
+       ORDER BY annualleave.leaveentryid` , // Use parameterized query
       [parsedManagerId] // Pass the managerId as a parameter
     );
 
