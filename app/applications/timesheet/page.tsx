@@ -75,10 +75,11 @@ export default function TimesheetPage() {
 
   const fetchAllocation = async () => {
     try {
-      const res = await fetch("/api/timesheet/allocation", {
+      const res = await fetch(`/api/timesheet/allocation?week=${weekStart.toISOString()}`, {
         method: "GET",
         credentials: "include",
       });
+
       const data = await res.json();
       if (res.ok) {
         setWeeklyHours(data.totalHours);
@@ -91,10 +92,11 @@ export default function TimesheetPage() {
     }
   };
 
+
   useEffect(() => {
     fetchRecentCodes();
     fetchAllocation();
-  }, []);
+  }, [weekStart]);
 
   const addEntry = () => {
     const newDate = getDateFromDay(weekStart, selectedDay);

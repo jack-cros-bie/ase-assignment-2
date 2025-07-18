@@ -25,11 +25,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
   }
 
-  const today = new Date();
-  const day = today.getDay(); // 0 (Sun) to 6 (Sat)
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((day + 6) % 7));
-  monday.setHours(0, 0, 0, 0);
+  // Use query param "week" to determine the Monday
+  const { searchParams } = req.nextUrl;
+  const weekParam = searchParams.get("week");
+
+  let monday: Date;
+  try {
+    const baseDate = weekParam ? new Date(weekParam) : new Date();
+    const day = baseDate.getDay();
+    const diffToMonday = (day + 6) % 7;
+    monday = new Date(baseDate);
+    monday.setDate(baseDate.getDate() - diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+  } catch (err) {
+    return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+  }
 
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
