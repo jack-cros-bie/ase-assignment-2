@@ -39,10 +39,13 @@ export async function POST(req: NextRequest) {
     for (const entry of entries) {
       const { code, date, start, end } = entry;
 
-      if (!code || !date || !start || !end) continue;
+      if (!code || !date || !start || !end) {
+        console.log("Skipping incomplete entry: ", entry)
+        continue;
+      }
 
       await query(
-        `INSERT INTO humanresources.timesheets (userid, bookingcode, date, starttime, endtime)
+        `INSERT INTO timesheets (userid, bookingcode, date, starttime, endtime)
          VALUES ($1, $2, $3, $4, $5)`,
         [userId, code, date, start, end]
       );
@@ -52,9 +55,15 @@ export async function POST(req: NextRequest) {
       { message: "Timesheets submitted successfully" },
       { status: 200 }
     );
-  } catch (err) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  } catch (err: any) {
+  console.error("API error:", {
+    message: err.message,
+    stack: err.stack,
+    full: err,
+  });
+  return NextResponse.json(
+    { error: err.message || "Internal server error" },
+    { status: 500 }
+  );
 }
-
+}
