@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const TimesheetRecord = await query<{}>(
-      `SELECT timesheets.timesheetentryid, timesheets.userid, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
+      `SELECT timesheets.timesheetentryid, timesheets.userid, employeedetails.firstname, employeedetails.surname, timesheets.bookingcode, timesheets.date, timesheets.starttime, timesheets.endtime
        FROM timesheets
        INNER JOIN employeedetails ON timesheets.userid=employeedetails.userid
        WHERE timesheets.approved = 'pending_approval' AND employeedetails.managerid = $1` , // Use parameterized query

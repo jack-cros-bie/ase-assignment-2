@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const AnnualLeaveRecord = await query<{}>(
-      `SELECT annualleave.leaveentryid, annualleave.userid, annualleave.date, annualleave.description
+      `SELECT annualleave.leaveentryid, annualleave.userid, employeedetails.firstname, employeedetails.surname, annualleave.date, annualleave.description
        FROM annualleave
        INNER JOIN employeedetails ON annualleave.userid=employeedetails.userid
        WHERE annualleave.approval_status='pending_approval' AND employeedetails.managerid = $1` , // Use parameterized query

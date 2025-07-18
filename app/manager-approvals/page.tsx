@@ -13,6 +13,8 @@ interface User {
 interface AnnualLeaveRecord{
       leaveentryid: number;
       userid: number;
+      firstname: string;
+      surname: string;
       date: string;
       description: string;
 } 
@@ -20,6 +22,8 @@ interface AnnualLeaveRecord{
 interface TimesheetRecord{
       timesheetentryid: number;
       userid: number;
+      firstname: string;
+      surname: string;
       bookingcode: string;
       date: string;
       starttime: string;
@@ -135,6 +139,8 @@ export default function ManagerApprovalPage() {
   const annualLeaveApprovals = AnnualLeaveRecords.map((leaveRecord) => ({
     leaveentryid: leaveRecord.leaveentryid,
     userid: leaveRecord.userid,
+    firstname: leaveRecord.firstname,
+    surname: leaveRecord.surname,
     type: "Annual Leave",
     date: leaveRecord.date,
     description: leaveRecord.description,
@@ -143,6 +149,8 @@ export default function ManagerApprovalPage() {
   const timesheetApprovals = TimesheetRecords.map((timesheetRecord) => ({
     timesheetentryid: timesheetRecord.timesheetentryid,
     userid: timesheetRecord.userid,
+    firstname: timesheetRecord.firstname,
+    surname: timesheetRecord.surname,
     type: "Timesheet",
     date: timesheetRecord.date,
     bookingcode: timesheetRecord.bookingcode,
@@ -179,7 +187,7 @@ return (
               <div key={index} className="bg-white p-4 rounded-2xl shadow-md">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex gap-6 text-sm">
-                    <p><strong>Employee:</strong> {annualLeaveApprovals.userid}</p>
+                    <p><strong>Employee:</strong> {annualLeaveApprovals.firstname} {annualLeaveApprovals.surname}</p>
                     <p><strong>Request Type:</strong> {annualLeaveApprovals.type}</p>
                     <p><strong>Key Information:</strong> {annualLeaveApprovals.date}</p>
                   </div>
@@ -204,7 +212,7 @@ return (
               <div key={index} className="bg-white p-4 rounded-2xl shadow-md">
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex gap-6 text-sm">
-                    <p><strong>Employee:</strong> {timesheetApprovals.userid}</p>
+                    <p><strong>Employee:</strong> {timesheetApprovals.firstname} {timesheetApprovals.surname}</p>
                     <p><strong>Request Type:</strong> {timesheetApprovals.type}</p>
                     <p><strong>Date:</strong> {timesheetApprovals.date}</p>
                     <p><strong>Start Time:</strong> {timesheetApprovals.starttime}</p>
