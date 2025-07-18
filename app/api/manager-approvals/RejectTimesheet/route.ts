@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
     const TimesheetRecord = await query<{}>(
       `UPDATE timesheets
-       SET approved = FALSE
+       SET approved = 'rejected'
        WHERE timesheetentryid = $1`,
        // Use parameterized query
       [parsedTimesheetEntryId] // Pass the timesheetentryid as a parameter
