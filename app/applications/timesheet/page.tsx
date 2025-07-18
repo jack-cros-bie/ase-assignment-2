@@ -17,7 +17,7 @@ const getDateFromDay = (monday: Date, day: string): string => {
   const index = dayLabels.indexOf(day);
   const d = new Date(monday);
   d.setDate(monday.getDate() + index);
-  return d.toISOString().slice(0, 10); // e.g., "2025-07-08"
+  return d.toISOString().slice(0, 10);
 };
 
 const getStartOfWeek = (date: Date): Date => {
@@ -36,7 +36,7 @@ const getFormattedWeekDates = (monday: Date): { day: string; label: string }[] =
     const day = date.getDate();
     const month = date.toLocaleString('default', { month: 'short' });
     return {
-      day: ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'][i],
+      day: dayLabels[i],
       label: `${day} ${month}`,
     };
   });
@@ -48,6 +48,8 @@ export default function TimesheetPage() {
   const [entries, setEntries] = useState<BookingEntry[]>([]);
   const [frequentCodes, setFrequentCodes] = useState<string[]>([]);
   const [loadingCodes, setLoadingCodes] = useState(true);
+  const [weeklyHours, setWeeklyHours] = useState(0);
+  const [allocation, setAllocation] = useState<Record<string, number>>({});
   const weekDates = getFormattedWeekDates(weekStart);
 
   const fetchRecentCodes = async () => {
@@ -71,111 +73,112 @@ export default function TimesheetPage() {
     }
   };
 
+  const fetchAllocation = async () => {
+    try {
+      const res = await fetch("/api/timesheet/allocation", {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWeeklyHours(data.totalHours);
+        setAllocation(data.breakdown);
+      } else {
+        console.error("Allocation fetch error:", data.error);
+      }
+    } catch (err) {
+      console.error("Allocation fetch failed:", err);
+    }
+  };
+
   useEffect(() => {
     fetchRecentCodes();
-}, []);
+    fetchAllocation();
+  }, []);
 
-  <section className="mb-6">
-  <h2 className="text-lg font-semibold mb-2">Frequently Used Codes</h2>
-  {loadingCodes ? (
-    <p>Loading...</p>
-  ) : frequentCodes.length === 0 ? (
-    <p className="text-gray-500">No recent codes found.</p>
-  ) : (
-    <ul className="list-disc list-inside">
-      {frequentCodes.map((code) => (
-        <li key={code} className="text-blue-600 font-mono">
-          {code}
-        </li>
-      ))}
-    </ul>
-  )}
-</section>
+  const addEntry = () => {
+    const newDate = getDateFromDay(weekStart, selectedDay);
+    setEntries((prev) => [
+      ...prev,
+      {
+        id: prev.length > 0 ? Math.max(...prev.map((e) => e.id)) + 1 : 1,
+        date: newDate,
+        code: '',
+        start: '',
+        end: '',
+        hours: '',
+      },
+    ]);
+  };
 
-const addEntry = () => {
-  const newDate = getDateFromDay(weekStart, selectedDay);
-  setEntries((prev) => [
-    ...prev,
-    {
-      id: prev.length > 0 ? Math.max(...prev.map((e) => e.id)) + 1 : 1,
-      date: newDate,
-      code: '',
-      start: '',
-      end: '',
-      hours: '',
-    },
-  ]);
-};
+  const updateEntry = (id: number, field: keyof BookingEntry, value: string) => {
+    setEntries((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
+    );
+  };
 
-const updateEntry = (id: number, field: keyof BookingEntry, value: string) => {
-  setEntries((prev) =>
-    prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry))
-  );
-};
+  const changeWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(weekStart);
+    newDate.setDate(weekStart.getDate() + (direction === 'next' ? 7 : -7));
+    setWeekStart(getStartOfWeek(newDate));
+  };
 
-const changeWeek = (direction: 'prev' | 'next') => {
-  const newDate = new Date(weekStart);
-  newDate.setDate(weekStart.getDate() + (direction === 'next' ? 7 : -7));
-  setWeekStart(getStartOfWeek(newDate));
-};
+  const stripTime = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
 
-const stripTime = (date: Date) => {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
+  const getTotalBookedHours = () => {
+    const monday = stripTime(new Date(weekStart));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
 
-const getTotalBookedHours = () => {
-  const monday = stripTime(new Date(weekStart));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+    return entries.reduce((sum, entry) => {
+      const entryDate = stripTime(new Date(entry.date));
+      const hours = parseFloat(entry.hours);
+      const isInWeek = entryDate >= monday && entryDate <= sunday;
 
-  return entries.reduce((sum, entry) => {
-    const entryDate = stripTime(new Date(entry.date));
-    const hours = parseFloat(entry.hours);
-    const isInWeek = entryDate >= monday && entryDate <= sunday;
+      if (!isNaN(hours) && isInWeek) {
+        return sum + hours;
+      }
+      return sum;
+    }, 0);
+  };
 
-    if (!isNaN(hours) && isInWeek) {
-      return sum + hours;
+  const handleSubmit = async () => {
+    const validEntries = entries
+      .filter((e) => e.code && e.date && e.start && e.end)
+      .map(({ code, date, start, end }) => ({
+        code,
+        date,
+        start,
+        end,
+      }));
+
+    if (validEntries.length === 0) {
+      alert("No valid entries to submit.");
+      return;
     }
-    return sum;
-  }, 0);
-};
 
-// Submit handler
-const handleSubmit = async () => {
-  const validEntries = entries
-    .filter((e) => e.code && e.date && e.start && e.end)
-    .map(({ code, date, start, end }) => ({
-      code,
-      date,
-      start,
-      end,
-    }));
+    const response = await fetch("/api/timesheet/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ entries: validEntries }),
+    });
 
-  if (validEntries.length === 0) {
-    alert("No valid entries to submit.");
-    return;
-  }
+    const result = await response.json();
 
-  const response = await fetch("/api/timesheet/submit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ entries: validEntries }),
-  });
-
-  const result = await response.json();
-
-  if (response.ok) {
-    alert("Timesheets submitted successfully!");
-    // Re-fetch recent codes
-    fetchRecentCodes();
-    // Optionally clear form entries:
-    // setEntries([]);
-  } else {
-    alert(`Error: ${result.error}`);
-  }
-};
+    if (response.ok) {
+      alert("Timesheets submitted successfully!");
+      fetchRecentCodes();
+      fetchAllocation();
+      // Optionally clear entries:
+      // setEntries([]);
+    } else {
+      alert(`Error: ${result.error}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 text-gray-800">
@@ -189,7 +192,7 @@ const handleSubmit = async () => {
       <div className="bg-white p-4 rounded shadow mb-4 flex justify-between items-center">
         <div className="text-lg font-semibold">Overview</div>
         <div className="text-sm">
-          Booked this week: <strong>{getTotalBookedHours().toFixed(2)} Hours</strong>
+          Booked this week: <strong>{weeklyHours.toFixed(2)} Hours</strong>
         </div>
       </div>
 
@@ -206,8 +209,11 @@ const handleSubmit = async () => {
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
-            <div className="text-sm text-gray-500 w-full md:w-auto">Date: <strong>{entry.date}</strong></div>
+            className="bg-white p-4 rounded shadow flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0"
+          >
+            <div className="text-sm text-gray-500 w-full md:w-auto">
+              Date: <strong>{entry.date}</strong>
+            </div>
             <input
               type="text"
               placeholder="Booking Code"
@@ -235,12 +241,12 @@ const handleSubmit = async () => {
               className="border p-2 rounded w-full md:w-1/6"
             />
             <button
-            onClick={() =>
-            setEntries((prev) => prev.filter((e) => e.id !== entry.id))
-            }
-            className="px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+              onClick={() =>
+                setEntries((prev) => prev.filter((e) => e.id !== entry.id))
+              }
+              className="px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
             >
-            Remove<br/>Item -
+              Remove<br />Item -
             </button>
           </div>
         ))}
@@ -248,57 +254,40 @@ const handleSubmit = async () => {
 
       {/* Recently Used Codes */}
       <section className="mb-6">
-      <h2 className="text-lg font-semibold mb-2">Recently Used Codes</h2>
-      {loadingCodes ? (
-        <p className="text-gray-500">Loading...</p>
-      ) : frequentCodes.length === 0 ? (
-        <p className="text-gray-500">No recent codes found.</p>
-      ) : (
-        <div className="flex gap-2 flex-wrap">
-          {frequentCodes.map((code, index) => (
-            <div
-              key={index}
-              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
-            >
-              {code}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
+        <h2 className="text-lg font-semibold mb-2">Recently Used Codes</h2>
+        {loadingCodes ? (
+          <p className="text-gray-500">Loading...</p>
+        ) : frequentCodes.length === 0 ? (
+          <p className="text-gray-500">No recent codes found.</p>
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            {frequentCodes.map((code, index) => (
+              <div
+                key={index}
+                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
+              >
+                {code}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Allocation Breakdown */}
       <div className="bg-white p-4 rounded shadow mb-6">
         <div className="font-semibold mb-2">Allocation breakdown</div>
-        {(() => {
-          const hoursByCode: Record<string, number> = {};
-          let totalHours = 0;
-
-          entries.forEach((entry) => {
-            const hours = parseFloat(entry.hours);
-            if (!isNaN(hours) && entry.code.trim()) {
-              const code = entry.code.trim();
-              hoursByCode[code] = (hoursByCode[code] || 0) + hours;
-              totalHours += hours;
-            }
-          });
-
-          if (totalHours === 0) {
-            return <div className="text-gray-500">No hours booked.</div>;
-          }
-
-          return (
-            <ul className="list-disc list-inside">
-              {Object.entries(hoursByCode).map(([code, hrs]) => (
-                <li key={code}>
-                  {code} – {((hrs / totalHours) * 100).toFixed(1)}%
-                </li>
-              ))}
-            </ul>
-          );
-        })()}
+        {weeklyHours === 0 ? (
+          <div className="text-gray-500">No hours booked.</div>
+        ) : (
+          <ul className="list-disc list-inside">
+            {Object.entries(allocation).map(([code, hrs]) => (
+              <li key={code}>
+                {code} – {((hrs / weeklyHours) * 100).toFixed(1)}%
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-
 
       {/* Weekdays + Navigation + Submit Buttons */}
       <div className="bg-white p-4 rounded shadow flex flex-col md:flex-row justify-between items-center">
@@ -337,8 +326,9 @@ const handleSubmit = async () => {
 
         <div className="flex space-x-4">
           <button
-          onClick={handleSubmit}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            onClick={handleSubmit}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
             Submit This Week
           </button>
           <a
