@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 type BookingEntry = {
   id: number;
@@ -46,8 +46,51 @@ export default function TimesheetPage() {
   const [weekStart, setWeekStart] = useState(getStartOfWeek(new Date()));
   const [selectedDay, setSelectedDay] = useState('Mon');
   const [entries, setEntries] = useState<BookingEntry[]>([]);
-
+  const [frequentCodes, setFrequentCodes] = useState<string[]>([]);
+  const [loadingCodes, setLoadingCodes] = useState(true);
   const weekDates = getFormattedWeekDates(weekStart);
+
+  const fetchRecentCodes = async () => {
+    try {
+      const res = await fetch("/api/timesheet/recent", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setFrequentCodes(data.recentCodes);
+      } else {
+        console.error("Failed to fetch recent codes:", data.error);
+      }
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setLoadingCodes(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentCodes();
+}, []);
+
+  <section className="mb-6">
+  <h2 className="text-lg font-semibold mb-2">Frequently Used Codes</h2>
+  {loadingCodes ? (
+    <p>Loading...</p>
+  ) : frequentCodes.length === 0 ? (
+    <p className="text-gray-500">No recent codes found.</p>
+  ) : (
+    <ul className="list-disc list-inside">
+      {frequentCodes.map((code) => (
+        <li key={code} className="text-blue-600 font-mono">
+          {code}
+        </li>
+      ))}
+    </ul>
+  )}
+</section>
 
 const addEntry = () => {
   const newDate = getDateFromDay(weekStart, selectedDay);
@@ -97,46 +140,42 @@ const getTotalBookedHours = () => {
   }, 0);
 };
 
-//____________________________________________________________________________________________________________________________________________________________________________________________________________________
 // Submit handler
-
 const handleSubmit = async () => {
-  
-    const validEntries = entries
-      .filter((e) => e.code && e.date && e.start && e.end)
-      .map(({ code, date, start, end }) => ({
-        code,
-        date,
-        start,
-        end,
-      }));
+  const validEntries = entries
+    .filter((e) => e.code && e.date && e.start && e.end)
+    .map(({ code, date, start, end }) => ({
+      code,
+      date,
+      start,
+      end,
+    }));
 
-    if (validEntries.length === 0) {
-      alert('No valid entries to submit.');
-      return;
-    }
+  if (validEntries.length === 0) {
+    alert("No valid entries to submit.");
+    return;
+  }
 
-    const response = await fetch('/api/timesheet/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ entries: validEntries }),
-    });
+  const response = await fetch("/api/timesheet/submit", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ entries: validEntries }),
+  });
 
-    const result = await response.json();
+  const result = await response.json();
 
-    if (response.ok) {
-      alert('Timesheets submitted successfully!');
-      // Optionally clear entries:
-      // setEntries([]);
-    } else {
-      alert(`Error: ${result.error}`);
-    }
+  if (response.ok) {
+    alert("Timesheets submitted successfully!");
+    // Re-fetch recent codes
+    fetchRecentCodes();
+    // Optionally clear form entries:
+    // setEntries([]);
+  } else {
+    alert(`Error: ${result.error}`);
+  }
 };
-
-//____________________________________________________________________________________________________________________________________________________________________________________________________________________
-
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 text-gray-800">
@@ -207,15 +246,26 @@ const handleSubmit = async () => {
         ))}
       </div>
 
-      {/* Frequently Used Codes */}
-      <div className="bg-white p-4 rounded shadow mb-6">
-        <div className="font-semibold mb-2">Frequently used Codes:</div>
-        <ul className="list-disc list-inside">
-          <li>XXXXXX</li>
-          <li>XXXXXX</li>
-          <li>XXXXXX</li>
-        </ul>
-      </div>
+      {/* Recently Used Codes */}
+      <section className="mb-6">
+      <h2 className="text-lg font-semibold mb-2">Recently Used Codes</h2>
+      {loadingCodes ? (
+        <p className="text-gray-500">Loading...</p>
+      ) : frequentCodes.length === 0 ? (
+        <p className="text-gray-500">No recent codes found.</p>
+      ) : (
+        <div className="flex gap-2 flex-wrap">
+          {frequentCodes.map((code, index) => (
+            <div
+              key={index}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium"
+            >
+              {code}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
 
       {/* Allocation Breakdown */}
       <div className="bg-white p-4 rounded shadow mb-6">
