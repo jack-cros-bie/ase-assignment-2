@@ -371,6 +371,12 @@ export default function TimesheetPage() {
           >
             Book Annual Leave
           </a>
+          <a
+            href="http://localhost:3000/dashboard"
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Return To Dashboard
+          </a>
         </div>
       </div>
     </div>
