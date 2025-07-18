@@ -50,6 +50,7 @@ export default function TimesheetPage() {
   const [loadingCodes, setLoadingCodes] = useState(true);
   const [weeklyHours, setWeeklyHours] = useState(0);
   const [allocation, setAllocation] = useState<Record<string, number>>({});
+  const [timesheetRows, setTimesheetRows] = useState<any[]>([]);
   const weekDates = getFormattedWeekDates(weekStart);
 
   const fetchRecentCodes = async () => {
@@ -84,6 +85,7 @@ export default function TimesheetPage() {
       if (res.ok) {
         setWeeklyHours(data.totalHours);
         setAllocation(data.breakdown);
+        setTimesheetRows(data.entries); // 👈 store full rows
       } else {
         console.error("Allocation fetch error:", data.error);
       }
@@ -91,7 +93,6 @@ export default function TimesheetPage() {
       console.error("Allocation fetch failed:", err);
     }
   };
-
 
   useEffect(() => {
     fetchRecentCodes();
@@ -277,17 +278,48 @@ export default function TimesheetPage() {
 
       {/* Allocation Breakdown */}
       <div className="bg-white p-4 rounded shadow mb-6">
-        <div className="font-semibold mb-2">Allocation breakdown</div>
-        {weeklyHours === 0 ? (
-          <div className="text-gray-500">No hours booked.</div>
+        <div className="font-semibold mb-2">Timesheet Entries</div>
+        {timesheetRows.length === 0 ? (
+          <div className="text-gray-500">No entries found for this week.</div>
         ) : (
-          <ul className="list-disc list-inside">
-            {Object.entries(allocation).map(([code, hrs]) => (
-              <li key={code}>
-                {code} – {((hrs / weeklyHours) * 100).toFixed(1)}%
-              </li>
-            ))}
-          </ul>
+          <table className="w-full text-sm border">
+            <thead>
+              <tr className="bg-gray-100 text-left">
+                <th className="p-2 border-b">Booking Code</th>
+                <th className="p-2 border-b">Date</th>
+                <th className="p-2 border-b">Start</th>
+                <th className="p-2 border-b">End</th>
+                <th className="p-2 border-b">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timesheetRows.map((row, i) => (
+                <tr key={i} className="border-t">
+                  <td className="p-2 font-mono">{row.bookingcode}</td>
+                  <td className="p-2">{new Date(row.date).toLocaleDateString()}</td>
+                  <td className="p-2">{row.starttime}</td>
+                  <td className="p-2">{row.endtime}</td>
+                  <td className="p-2">
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-white text-xs font-semibold ${
+                        row.approved === true
+                          ? "bg-green-500"
+                          : row.approved === false
+                          ? "bg-red-500"
+                          : "bg-amber-400 text-gray-900"
+                      }`}
+                    >
+                      {row.approved === true
+                        ? "Approved"
+                        : row.approved === false
+                        ? "Rejected"
+                        : "Pending"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 

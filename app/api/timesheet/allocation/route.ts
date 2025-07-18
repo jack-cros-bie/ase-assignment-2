@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
 
   try {
     const result: any[] = await query(
-      `SELECT bookingcode, starttime, endtime
-       FROM timesheets
-       WHERE userid = $1 AND date BETWEEN $2 AND $3`,
+      `SELECT bookingcode, date, starttime, endtime, approved
+      FROM timesheets
+      WHERE userid = $1 AND date BETWEEN $2 AND $3`,
       [userId, monday.toISOString().slice(0, 10), sunday.toISOString().slice(0, 10)]
     );
 
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ totalHours: total, breakdown: allocation });
+    return NextResponse.json({ totalHours: total, breakdown: allocation, entries: result });
   } catch (err) {
     console.error("Allocation API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
