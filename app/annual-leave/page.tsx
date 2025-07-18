@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 type LeaveStatus = "pending_approval" | "approved" | "rejected";
 
@@ -10,6 +11,9 @@ interface LeaveEntry {
 }
 
 export default function AnnualLeavePage() {
+
+  const router = useRouter();
+
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
   const [dateStatusMap, setDateStatusMap] = useState<Map<string, LeaveStatus>>(new Map());
@@ -374,6 +378,44 @@ export default function AnnualLeavePage() {
             >
               Cancel Leave
             </button>
+            <div         style={{
+          position: "absolute",
+          top: 24,
+          left: 24,
+          display: "flex",
+          gap: 12,
+          zIndex: 1000, }}>
+            <button
+              onClick={() => router.push("/dashboard")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#0d47a1",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => router.push("/timesheet")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#0d47a1",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Timesheet
+            </button>
+          </div>
+
           </div>
         </div>
 
