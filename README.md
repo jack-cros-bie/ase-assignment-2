@@ -71,3 +71,67 @@ JWT_SECRET=<your-jwt-secret>
 - `npm run build`: Build the production app.
 - `npm start`: Run the production build.
 
+# Automated Tests
+
+We’ve added comprehensive Jest‑based tests for our key API routes. All tests live alongside your code under the `__tests__/` folder and mock external dependencies (`bcrypt`, `jsonwebtoken`, and our `query` function) to isolate logic.
+
+---
+
+### Test Suites
+
+| Test File                                                                                     | Description                                                                                               |
+|-----------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| `__tests__/api/admin/create-user-route.test.ts`                                               | **Create User API** (`POST /api/admin/create-user`)
+- 400 on missing username/password
+- 200 on success (password hashing + DB insert)
+- 500 on DB failure |
+| `__tests__/api/auth/login-route.test.ts`                                                      | **Login API** (`POST /api/auth/login`)
+- 401 on nonexistent user
+- 401 on bad password
+- 200 on success (JWT issuance + cookie set) |
+| `__tests__/api/employees/information-route.test.ts`                                           | **Employee Info API** (`GET /api/employees/information?userid=…`)
+- 400 if `userid` missing or invalid
+- 404 if no record found
+- 200 on success (returns the row)
+- 500 on DB error |
+
+---
+
+### Setup & Run Instructions
+
+1. **Install dev dependencies**
+   ```bash
+   npm install --save-dev jest ts-jest @types/jest
+   ```
+2. **Ensure Jest is configured** in your `jest.config.js`:
+   ```js
+   module.exports = {
+     preset: 'ts-jest',
+     testEnvironment: 'node',
+     moduleNameMapper: { '^@/(.*)$': '<rootDir>/$1' }
+   };
+   ```
+3. **Add test scripts** to your `package.json`:
+   ```json
+   {
+     "scripts": {
+       "test": "jest",
+       "test:unit": "jest --coverage"
+     }
+   }
+   ```
+4. **Run all tests**:
+   ```bash
+   npm test
+   ```
+5. **Run a single suite** (e.g. the login tests):
+   ```bash
+   npx jest __tests__/api/auth/login-route.test.ts
+   ```
+6. **View coverage report** (after running `npm run test:unit`):
+   - Open `coverage/lcov-report/index.html` in your browser for detailed metrics.
+
+---
+
+With these tests in place, you’ll catch regressions early, verify all edge‑cases, and have confidence that your API routes behave as expected.
+
