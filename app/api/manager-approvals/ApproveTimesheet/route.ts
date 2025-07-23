@@ -1,4 +1,4 @@
-// File: /api/manager-approvals/SetAnnualLeaveApproval/route.ts
+// File: /api/manager-approvals/ApproveTimesheet/route.ts
 import { NextResponse } from 'next/server';
 import { query } from '@/server/sql/sqlHandler.server';
 
