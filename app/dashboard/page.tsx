@@ -9,7 +9,7 @@ import { User, Calendar, CheckCircle2, Briefcase } from "lucide-react";
 // Dashboard items configuration
 const dashboardItems = [
   { title: "Employee Details", href: "/employee-details", icon: <User size={48} /> },
-  { title: "Timesheets & Annual Leave", href: "/timesheet", icon: <Calendar size={48} /> },
+  { title: "Timesheets & Annual Leave", href: "/applications/timesheet", icon: <Calendar size={48} /> },
   { title: "Manager Approvals", href: "/manager-approvals", icon: <CheckCircle2 size={48} /> },
   { title: "Recruitment Portal", href: "/recruitment-portal", icon: <Briefcase size={48} /> },
 ];
