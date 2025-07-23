@@ -1,36 +1,48 @@
-// File: /api/manager-approvals/SetAnnualLeaveApproval/route.ts
+// File: app/api/manager-approvals/RejectAnnualLeave/route.ts
+
 import { NextResponse } from 'next/server';
 import { query } from '@/server/sql/sqlHandler.server';
 
 export async function POST(request: Request) {
-    try {
-    // Extract the managerId from the query parameters.
-    const urlParams = new URLSearchParams(request.url);
-    const leaveentryid = urlParams.get('leaveentryid');
+  try {
+    // 1) Properly parse the URL & querystring
+    const url = new URL(request.url);
+    const leaveentryid = url.searchParams.get('leaveentryid');
 
+    // 2) Missing?
     if (!leaveentryid) {
-      return NextResponse.json({ error: 'leaveentryid parameter is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'leaveentryid parameter is required' },
+        { status: 400 }
+      );
     }
 
+    // 3) Not a number?
     const parsedLeaveEntryId = parseInt(leaveentryid, 10);
-
     if (isNaN(parsedLeaveEntryId)) {
-      return NextResponse.json({ error: 'Invalid leaveentryid.  Must be a number.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid leaveentryid.  Must be a number.' },
+        { status: 400 }
+      );
     }
 
+    // 4) Perform the update
     const AnnualLeaveRecord = await query<{}>(
       `UPDATE annualleave
        SET approval_status = 'rejected'
        WHERE leaveentryid = $1`,
-       // Use parameterized query
-      [parsedLeaveEntryId] // Pass the leaveentryid as a parameter
+      [parsedLeaveEntryId]
     );
 
-    console.log(AnnualLeaveRecord)
+    console.log(AnnualLeaveRecord);
 
     return NextResponse.json(AnnualLeaveRecord);
   } catch (error) {
     console.error('Error setting leave rejection:', error);
-    return NextResponse.json({ error: 'Failed to reject leave' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to reject leave' },
+      { status: 500 }
+    );
   }
 }
+
