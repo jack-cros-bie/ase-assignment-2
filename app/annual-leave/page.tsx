@@ -1,0 +1,483 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+
+type LeaveStatus = "pending_approval" | "approved" | "rejected";
+
+interface LeaveEntry {
+  date: string; // YYYY-MM-DD in UK timezone
+  approval_status: LeaveStatus;
+}
+
+export default function AnnualLeavePage() {
+
+  const router = useRouter();
+
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
+  const [dateStatusMap, setDateStatusMap] = useState<Map<string, LeaveStatus>>(new Map());
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return toUKDateISO(now).slice(0, 7);
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dragSelecting = useRef(false);
+  const dragStartDate = useRef<string | null>(null);
+
+  function toUKDateISO(date: Date) {
+    return date
+      .toLocaleDateString("en-GB", {
+        timeZone: "Europe/London",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+      .split("/")
+      .reverse()
+      .join("-");
+  }
+
+  // --- Data fetching for month ---
+  useEffect(() => {
+    async function fetchLeave() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/annualleave?month=${month}`);
+        if (!res.ok) {
+          const json = await safeJson(res);
+          throw new Error(json?.error || "Failed to load leave data");
+        }
+        const data: LeaveEntry[] = await res.json();
+        setLeaveEntries(Array.isArray(data) ? data : []);
+        setSelectedDates(new Set());
+      } catch (err: any) {
+        setError(err.message || "Failed to load leave data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchLeave();
+  }, [month]);
+
+  // --- Fetch per-date status ---
+  useEffect(() => {
+    const [year, monthNum] = month.split("-").map(Number);
+    const weeks = getWeeksOfMondaysThroughFridays(year, monthNum - 1);
+    async function fetchStatuses() {
+      const statuses = new Map<string, LeaveStatus>();
+      await Promise.all(
+        weeks.flat().filter((date) => !!date).map(async (date) => {
+          try {
+            const res = await fetch(`/api/annualleave/status?date=${date}`);
+            if (res.ok) {
+              const data: LeaveEntry = await res.json();
+              statuses.set(date!, data.approval_status);
+            }
+          } catch {
+            // leave as undefined
+          }
+        })
+      );
+      setDateStatusMap(new Map(statuses));
+    }
+    fetchStatuses();
+  }, [month]);
+
+  async function safeJson(res: Response) {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  // --- Date utilities ---
+  function getWeeksOfMondaysThroughFridays(year: number, monthIndex: number): string[][] {
+    const weeks: string[][] = [];
+    let date = new Date(Date.UTC(year, monthIndex, 1));
+    while (date.getUTCDay() !== 1) {
+      date.setUTCDate(date.getUTCDate() - 1);
+    }
+    while (true) {
+      const week: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const inMonth = date.getUTCMonth() === monthIndex;
+        week.push(inMonth ? toUKDateISO(date) : "");
+        date.setUTCDate(date.getUTCDate() + 1);
+      }
+      weeks.push(week);
+      date.setUTCDate(date.getUTCDate() + 2);
+      if (date.getUTCFullYear() > year || (date.getUTCFullYear() === year && date.getUTCMonth() > monthIndex)) {
+        break;
+      }
+    }
+    return weeks;
+  }
+
+  function getDatesInRange(start: string, end: string): string[] {
+    const dates: string[] = [];
+    const startDate = new Date(start + "T00:00:00Z");
+    const endDate = new Date(end + "T00:00:00Z");
+    const step = startDate <= endDate ? 1 : -1;
+    let current = new Date(startDate);
+    while (true) {
+      const dow = current.getUTCDay();
+      if (dow >= 1 && dow <= 5) {
+        dates.push(toUKDateISO(current));
+      }
+      if (current.getTime() === endDate.getTime()) break;
+      current.setUTCDate(current.getUTCDate() + step);
+    }
+    return dates;
+  }
+
+  // --- Selection handlers ---
+  function onPointerDown(date: string) {
+    if (!date) return;
+    dragSelecting.current = true;
+    dragStartDate.current = date;
+    setSelectedDates((prev) => new Set(prev).add(date));
+  }
+
+  function onPointerEnter(date: string) {
+    if (!dragSelecting.current || !dragStartDate.current || !date) return;
+    const range = getDatesInRange(dragStartDate.current, date);
+    setSelectedDates((prev) => {
+      const next = new Set(prev);
+      for (const d of range) next.add(d);
+      return next;
+    });
+  }
+
+  function onPointerUp() {
+    dragSelecting.current = false;
+    dragStartDate.current = null;
+  }
+
+  // --- Submit / cancel ---
+  async function submitLeaveRequest() {
+    if (selectedDates.size === 0) {
+      alert("Please select at least one date.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/annualleave/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dates: Array.from(selectedDates) }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error || "Failed to request leave");
+      alert("Leave request submitted. Status is now pending approval.");
+      const refreshed = await fetch(`/api/annualleave?month=${month}`);
+      if (!refreshed.ok) throw new Error("Failed to refresh leave data");
+      const refreshedData: LeaveEntry[] = await refreshed.json();
+      setLeaveEntries(Array.isArray(refreshedData) ? refreshedData : []);
+      setSelectedDates(new Set());
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.message || "Failed to submit leave request");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelLeaveRequest() {
+    if (selectedDates.size === 0) {
+      alert("Please select at least one date to cancel.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/annualleave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dates: Array.from(selectedDates) }),
+      });
+      const json = await safeJson(res);
+      if (!res.ok) throw new Error(json?.error || "Failed to cancel leave");
+      alert("Leave cancelled successfully.");
+      const refreshed = await fetch(`/api/annualleave?month=${month}`);
+      if (!refreshed.ok) throw new Error("Failed to refresh leave data");
+      const refreshedData: LeaveEntry[] = await refreshed.json();
+      setLeaveEntries(Array.isArray(refreshedData) ? refreshedData : []);
+      setSelectedDates(new Set());
+    } catch (err: any) {
+      setError(err.message || "Failed to cancel leave");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // --- Prepare calendar & stats ---
+  const [year, monthNum] = month.split("-").map(Number);
+  const weeks = getWeeksOfMondaysThroughFridays(year, monthNum - 1);
+
+  function getStatusColor(date?: string) {
+    if (!date) return "transparent";
+    if (selectedDates.has(date)) return "#a8d0ff";
+    const status = dateStatusMap.get(date);
+    if (status === "pending_approval") return "#ffb300";
+    if (status === "approved") return "#4caf50";
+    return "transparent";
+  }
+
+  const approvedDays = leaveEntries.filter((e) => e.approval_status === "approved").length;
+  const pendingDays = leaveEntries.filter((e) => e.approval_status === "pending_approval").length;
+  const rejectedDays = leaveEntries.filter((e) => e.approval_status === "rejected").length;
+  const remaining = 25 - approvedDays;
+
+  return (
+    <div
+      style={{
+        padding: 24,
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        backgroundColor: "#f4f6f8",
+        minHeight: "100vh",
+        color: "#222",
+      }}
+      onPointerUp={onPointerUp}
+    >
+      {/* Header & Month Selector */}
+      <h1 style={{ fontSize: "2.5rem", marginBottom: 24, fontWeight: 700, color: "#0d47a1", textAlign: "center" }}>
+        Annual Leave Request
+      </h1>
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <label htmlFor="month-select" style={{ fontWeight: 600, fontSize: 16, marginRight: 12, color: "#555" }}>
+          Select month:
+        </label>
+        <input
+          id="month-select"
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          disabled={loading}
+          style={{
+            padding: "8px 12px",
+            fontSize: 16,
+            borderRadius: 6,
+            border: "1.5px solid #ccc",
+            boxShadow: "inset 0 2px 5px rgba(0,0,0,0.05)",
+            transition: "border-color 0.3s",
+          }}
+        />
+      </div>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: "#ffcccc",
+            color: "#a00",
+            padding: "12px 16px",
+            borderRadius: 8,
+            marginBottom: 20,
+            maxWidth: 700,
+            marginLeft: "auto",
+            marginRight: "auto",
+            textAlign: "center",
+            fontWeight: 600,
+          }}
+        >
+          Error: {error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 48, alignItems: "flex-start", maxWidth: 1050, margin: "0 auto" }}>
+        {/* Calendar */}
+        <div
+          style={{
+            flex: "0 0 700px",
+            backgroundColor: "#fff",
+            padding: 20,
+            borderRadius: 12,
+            boxShadow: "0 8px 20px rgba(13, 71, 161, 0.1)",
+            userSelect: "none",
+            touchAction: "none",
+          }}
+        >
+          {/* Weekday Labels */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12, marginBottom: 24, fontWeight: 700, color: "#0d47a1" }}>
+            {['Mon','Tue','Wed','Thu','Fri'].map(wd => <div key={wd} style={{ textAlign: 'center' }}>{wd}</div>)}
+          </div>
+
+          {/* Date Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+            {weeks.flat().map((dateStr, idx) => {
+              const dayNum = dateStr ? parseInt(dateStr.slice(-2), 10) : '';
+              const bgColor = getStatusColor(dateStr);
+              const isSelected = dateStr ? selectedDates.has(dateStr) : false;
+              return (
+                <div
+                  key={idx}
+                  onPointerDown={() => onPointerDown(dateStr)}
+                  onPointerEnter={() => onPointerEnter(dateStr)}
+                  style={{
+                    cursor: dateStr ? 'pointer' : 'default',
+                    padding: 12,
+                    borderRadius: 8,
+                    border: isSelected ? '3px solid #0d47a1' : '1.5px solid #ddd',
+                    backgroundColor: bgColor,
+                    color: '#000',
+                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: 17,
+                    minHeight: 46,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  {dayNum}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 24 }}>
+            <button
+              onClick={submitLeaveRequest}
+              disabled={loading || selectedDates.size === 0}
+              style={{
+                flex: 1,
+                padding: "12px 16px",
+                fontSize: 16,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "none",
+                backgroundColor: loading || selectedDates.size === 0 ? '#a0aec0' : '#0d47a1',
+                color: '#fff',
+                cursor: loading || selectedDates.size === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 10px rgba(13, 71, 161, 0.3)',
+              }}
+            >
+              Request Leave
+            </button>
+            <button
+              onClick={cancelLeaveRequest}
+              disabled={loading || selectedDates.size === 0}
+              style={{
+                flex: 1,
+                padding: "12px 16px",
+                fontSize: 16,
+                fontWeight: 600,
+                borderRadius: 8,
+                border: "2px solid #e53935",
+                backgroundColor: "transparent",
+                color: loading || selectedDates.size === 0 ? '#f9bdbb' : '#e53935',
+                cursor: loading || selectedDates.size === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Cancel Leave
+            </button>
+            <div         style={{
+          position: "absolute",
+          top: 24,
+          left: 24,
+          display: "flex",
+          gap: 12,
+          zIndex: 1000, }}>
+            <button
+              onClick={() => router.push("/dashboard")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#0d47a1",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => router.push("/timesheet")}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#0d47a1",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Timesheet
+            </button>
+          </div>
+
+          </div>
+        </div>
+
+        {/* Summary Pane */}
+        <aside
+          style={{
+            flex: "1 1 320px",
+            backgroundColor: "#fff",
+            padding: 24,
+            borderRadius: 12,
+            boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+            fontSize: 15,
+            color: "#333",
+            maxHeight: "80vh",
+            overflowY: "auto",
+          }}
+          aria-label="Leave summary and details"
+        >
+          <h2 style={{ fontWeight: 700, fontSize: "1.4rem", color: "#0d47a1" }}>Summary</h2>
+          <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 20px" }}>
+            <li><strong>Approved days:</strong> <span style={{ color: "#4caf50", fontWeight: 600 }}>{approvedDays}</span></li>
+            <li><strong>Pending approval:</strong> <span style={{ color: "#ffb300", fontWeight: 600 }}>{pendingDays}</span></li>
+            <li><strong>Rejected days:</strong> <span style={{ color: "#f44336", fontWeight: 600 }}>{rejectedDays}</span></li>
+            <li><strong>Remaining allowance:</strong> <span style={{ fontWeight: 600 }}>{remaining}</span></li>
+          </ul>
+
+          <h3 style={{ fontWeight: 700, fontSize: "1.1rem", color: "#0d47a1" }}>Upcoming Leave</h3>
+          {leaveEntries.filter(e => e.approval_status !== 'rejected').length === 0 ? (
+            <p style={{ fontStyle: "italic", color: "#777", paddingLeft: 12, borderLeft: "3px solid #ccc" }}>
+              No upcoming leave.
+            </p>
+          ) : (
+            <ul style={{ paddingLeft: 20, marginBottom: 20, borderLeft: "3px solid #0d47a1", maxHeight: 220, overflowY: "auto" }}>
+              {leaveEntries.filter(e => e.approval_status !== 'rejected').sort((a, b) => a.date.localeCompare(b.date)).map(({ date, approval_status }) => (
+                <li
+                  key={date}
+                  style={{
+                    marginBottom: 8,
+                    fontWeight: 600,
+                    color: approval_status === "approved" ? "#4caf50" : "#ffb300",
+                  }}
+                >
+                  {date} — {approval_status.replace("_", " ")}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h3 style={{ fontWeight: 700, fontSize: "1.1rem", color: "#0d47a1" }}>Selected Dates</h3>
+          {selectedDates.size === 0 ? (
+            <p style={{ fontStyle: "italic", color: "#777", paddingLeft: 12, borderLeft: "3px solid #ccc" }}>
+              No dates selected.
+            </p>
+          ) : (
+            <ul style={{ paddingLeft: 20, borderLeft: "3px solid #0d47a1", maxHeight: 220, overflowY: "auto" }}>
+              {Array.from(selectedDates).sort().map((date) => (
+                <li key={date} style={{ marginBottom: 6 }}>{date}</li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
