@@ -1,36 +1,47 @@
-// File: /api/manager-approvals/ApproveTimesheet/route.ts
+// File: app/api/manager-approvals/ApproveTimesheet/route.ts
 import { NextResponse } from 'next/server';
 import { query } from '@/server/sql/sqlHandler.server';
 
 export async function POST(request: Request) {
-    try {
-    // Extract the managerId from the query parameters.
-    const urlParams = new URLSearchParams(request.url);
-    const timesheetentryid = urlParams.get('leaveentryid');
+  try {
+    // 1) Properly parse the URL & its query string
+    const url = new URL(request.url);
+    const timesheetentryid = url.searchParams.get('leaveentryid');
 
+    // 2) Missing parameter
     if (!timesheetentryid) {
-      return NextResponse.json({ error: 'timesheetentryid parameter is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'timesheetentryid parameter is required' },
+        { status: 400 }
+      );
     }
 
-    const parsedTimesheetEntryId = parseInt(timesheetentryid, 10);
-
-    if (isNaN(parsedTimesheetEntryId)) {
-      return NextResponse.json({ error: 'Invalid timesheetentryid.  Must be a number.' }, { status: 400 });
+    // 3) Not a number?
+    const parsed = parseInt(timesheetentryid, 10);
+    if (isNaN(parsed)) {
+      return NextResponse.json(
+        { error: 'Invalid timesheetentryid.  Must be a number.' },
+        { status: 400 }
+      );
     }
 
+    // 4) Perform the update
     const TimesheetRecord = await query<{}>(
       `UPDATE timesheets
        SET approved = 'approved'
        WHERE timesheetentryid = $1`,
-       // Use parameterized query
-      [parsedTimesheetEntryId] // Pass the timesheetentryid as a parameter
+      [parsed]
     );
 
-    console.log(TimesheetRecord)
+    console.log(TimesheetRecord);
 
     return NextResponse.json(TimesheetRecord);
   } catch (error) {
     console.error('Error setting timesheet approval:', error);
-    return NextResponse.json({ error: 'Failed to approve timesheet'}, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to approve timesheet' },
+      { status: 500 }
+    );
   }
 }
+
