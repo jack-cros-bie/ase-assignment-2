@@ -123,7 +123,7 @@ describe('POST /api/timesheet/submit', () => {
   it('inserts only complete entries and returns 200 on success', async () => {
     const entries = [
       { code: 'A1', date: '2025-07-23', start: '09:00', end: '12:00' },
-      { code: '',  date: '2025-07-23', start: '13:00', end: '17:00' }, // incomplete
+      { code: '',  date: '2025-07-23', start: '13:00', end: '17:00' }, // Intentionally incomplete to simulate invalid date/time
       { code: 'B2', date: '2025-07-24', start: '10:00', end: '18:00' }
     ];
     const req = makeReq({ token: 'good', entriesBody: { entries } });
