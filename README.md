@@ -70,12 +70,4 @@ JWT_SECRET=<your-jwt-secret>
 - `npm run dev`: Start the development server (Webpack HMR).
 - `npm run build`: Build the production app.
 - `npm start`: Run the production build.
-
-## Jest Automated Tests
-
-### Timesheet tests:
-
-- `npm test __tests__/api/timesheet/allocation-route.test.ts`: Test validation of timesheet input, JWT secret and database integration
-- `npm test __tests__/api/timesheet/recent-route.test.ts`: Test GET request for recent timesheet entries, JWT secret and database integration
-- `npm test __tests__/api/timesheet/submit-route.test.ts`: Test POST request for submitting a timesheet, JET secret and database integration
-
+- 'npm test' : Run all automated tests within the Jest test suite.
